@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "scorpus"
 version = "0.3.0"
 description = "Sparse single-cell expression corpora with original metadata and in-memory composition."
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "anndata>=0.11",
     "deprecation==2.1.0",
