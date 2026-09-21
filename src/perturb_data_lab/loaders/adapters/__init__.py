@@ -1,9 +1,4 @@
-"""Public slim-main adapter exports.
-
-The pertTF adapter namespace is kept here so the retained training-facing
-surface can evolve without modifying the external ``pertTF`` repository.
-Legacy mapping helpers remain internal to the implementation module.
-"""
+"""Model-independent sparse batch loader exports."""
 
 from .standard import (
     ExpressionBatchDataset,
@@ -12,14 +7,6 @@ from .standard import (
     build_loader,
     collate_expression_batch,
 )
-from .perttf import (
-    PertTFAdapterConfig,
-    PertTFPairedBatchLoader,
-    PertTFPairedBatchBuilder,
-    PerturbationPairBatch,
-    PerturbationPairSampler,
-    PertTFCorpusAdapter,
-)
 
 __all__ = [
     "ExpressionBatchDataset",
@@ -27,10 +14,4 @@ __all__ = [
     "ContextBatchSampler",
     "build_loader",
     "collate_expression_batch",
-    "PertTFAdapterConfig",
-    "PertTFPairedBatchLoader",
-    "PertTFPairedBatchBuilder",
-    "PerturbationPairBatch",
-    "PerturbationPairSampler",
-    "PertTFCorpusAdapter",
 ]

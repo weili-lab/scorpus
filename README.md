@@ -10,7 +10,24 @@ package with a large compatibility surface; it is a practical framework for
 inspecting real datasets, materializing count matrices safely, and loading the
 resulting corpora.
 
-## Current Workflow
+## Quick conversion and composition
+
+```python
+from perturb_data_lab import from_h5ad, load_corpus, concat
+
+corpus = from_h5ad("dataset.h5ad", "dataset.corpus")
+adata = corpus.to_anndata_lazy()  # original obs/var; expression stays on disk
+```
+
+Or use `python -m perturb_data_lab.cli convert --source dataset.h5ad --output dataset.corpus`.
+No separate inspection or canonicalization is required. Raw-count detection is
+internal; recovery and non-count storage require explicit opt-ins.
+
+See [Composable corpora](docs/composable_corpora.md) for count policies, native
+backed h5ad export, and temporary federation with in-memory metadata mappings.
+The pertTF adapter now lives in pertTF (`perttf.model.corpus_adapter`).
+
+## Curated release workflow
 
 ```text
 raw h5ad
@@ -84,7 +101,7 @@ Important code areas:
 - `src/perturb_data_lab/inspectors/`: backed `.h5ad` metadata and count-source inspection
 - `src/perturb_data_lab/materializers/`: count-matrix streaming, backend writers, manifests, and corpus registration
 - `src/perturb_data_lab/canonical/`: schema drafting, schema contracts, transforms, and canonicalization runner
-- `src/perturb_data_lab/loaders/`: `load_corpus()`, expression readers, metadata index, feature registry, samplers, and pertTF adapter
+- `src/perturb_data_lab/loaders/`: `load_corpus()`, temporary composition, expression readers, metadata index, feature registry, and generic samplers
 - `src/perturb_data_lab/pp/`: corpus-native streamed stats, HVG, and fallback PCA/DE helpers
 
 ## Documentation Map
@@ -140,7 +157,7 @@ Load the corpus:
 from perturb_data_lab.loaders import load_corpus
 
 corpus = load_corpus("./artifacts/corpus")
-expr = corpus.read_expression([0, 1, 2])
+expr = corpus.expression_reader.read_expression_flat([0, 1, 2])
 meta = corpus.take_metadata([0, 1, 2], columns=["dataset_id", "perturb_label"])
 ```
 
@@ -151,20 +168,17 @@ from perturb_data_lab.loaders import load_corpus
 
 corpus = load_corpus("/path/to/corpus")
 
-corpus.set_sampler(batch_size=128, seed=0)
-
-for batch in corpus.loader(seq_len=1024, processing="gpu", num_workers=4):
-    train_step(batch)
+expression = corpus.expression_reader.read_expression_flat([0, 1, 2])
+metadata = corpus.take_metadata([0, 1, 2], columns=["dataset_id"])
 ```
 
 Useful runtime methods:
 
-- `corpus.read_expression(global_row_indices)`: read sparse expression rows
+- `corpus.expression_reader.read_expression_flat(global_row_indices)`: read sparse expression rows
 - `corpus.take_metadata(global_row_indices, columns=[...])`: read canonical metadata columns
-- `corpus.inspect_batch(global_row_indices, metadata_columns=[...])`: inspect expression plus metadata together
-- `corpus.loader(...)`: build an iterable sparse batch loader
 - `corpus.to_anndata(...)`: eager counts-only AnnData handoff for whole dataset(s) or selected same-dataset global rows
 - `corpus.to_anndata_lazy(...)`: Dask-backed AnnData handoff for whole selected dataset(s)
+- `corpus.write_h5ad(...)`: write a new file that can be reopened with `backed="r"`
 - `corpus.add_obs_meta(...)`: runtime-only join of full-corpus observation metadata
 
 By default, `load_corpus()` loads core canonical metadata. Pass

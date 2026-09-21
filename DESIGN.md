@@ -40,11 +40,22 @@ source h5ad
   -> downstream loaders or analysis helpers
 ```
 
+For direct conversion and temporary multi-dataset views, the shorter route is:
+
+```text
+source h5ad
+  -> standalone conversion
+  -> optional in-memory composition
+  -> load_corpus()
+  -> model-specific loader or analysis handoff
+```
+
 The user-facing how-to docs are split by task:
 
 - Inspection and materialization: `docs/inspect_materialize.md`
 - Canonical schema review and canonicalization: `docs/canonicalization_handbook.md`
-- pertTF paired loading: `docs/perttf_loader.md`
+- Direct conversion and temporary composition: `docs/composable_corpora.md`
+- pertTF paired loading: `docs/perttf_loader.md` and the pertTF worktree's tutorials
 - AnnData/Scanpy/RAPIDS handoff and corpus-native pp helpers: `docs/anndata_scanpy_handoff.md`
 - Backend policy: `docs/backend_note.md`
 
@@ -176,24 +187,25 @@ Common runtime calls:
 from perturb_data_lab.loaders import load_corpus
 
 corpus = load_corpus("/path/to/corpus")
-expr = corpus.read_expression([0, 1, 2])
+expr = corpus.expression_reader.read_expression_flat([0, 1, 2])
 meta = corpus.take_metadata([0, 1, 2], columns=["dataset_id", "perturb_label"])
-batch = next(iter(corpus.loader(seq_len=1024, processing="gpu")))
 ```
 
-`load_corpus()` requires canonical obs/var parquet files. A materialized but
-uncanonicalized corpus is not training-ready through the public runtime API.
+Curated corpora require canonical obs/var parquet files. A standalone corpus
+created by direct conversion retains original obs/var metadata and is suitable
+for explicit runtime composition, export, or a model-specific adapter after
+the required metadata mapping is supplied.
 
 ## 6. Downstream Paths
 
 The repo has three main downstream usage paths.
 
-The generic sparse loader uses `corpus.loader(...)` and returns sparse batches
+The generic sparse loader uses `build_loader(...)` and returns sparse batches
 with dataset-aware feature mapping.
 
-The pertTF adapter uses `PertTFPairedBatchLoader` to form source/target paired
-batches with configurable labels, control definitions, row pools, and pairing
-groups. See `docs/perttf_loader.md`.
+The pertTF-owned adapter uses `PertTFPairedBatchLoader` to form source/target
+paired batches with configurable labels, control definitions, row pools, and
+pairing groups. See `docs/perttf_loader.md` and the pertTF worktree's tutorials.
 
 The AnnData/Scanpy/RAPIDS path uses `corpus.to_anndata(...)` for eager
 counts-only export of whole selected dataset(s), or `corpus.to_anndata_lazy(...)`
@@ -226,7 +238,7 @@ internals.
 
 - Materialization preserves sparse counts and raw metadata; it does not solve cross-dataset metadata harmonization.
 - Canonicalization adds reviewed metadata; it does not mutate materialized expression rows.
-- The loader requires canonical metadata; it does not infer a final schema from raw sidecars.
+- The curated loader requires canonical metadata; direct conversion does not infer a final biological schema.
 - Feature identity is dataset-local at materialization time and corpus-global at load time.
 - The repo does not aim to replace Scanpy/RAPIDS for full exploratory preprocessing.
-- Current mainline docs describe Lance/Zarr only.
+- Current mainline docs describe Lance/Zarr only; direct conversion currently writes standalone Lance corpora.

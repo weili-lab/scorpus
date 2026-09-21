@@ -71,6 +71,43 @@ class Corpus:
     corpus_root: Path = Path()
     canonical_obs_paths: dict[str, Path] = field(default_factory=dict)
     canonical_var_paths: dict[str, Path] = field(default_factory=dict)
+    obs_frames: dict[str, Any] = field(default_factory=dict)
+    var_frames: dict[str, Any] = field(default_factory=dict)
+    members: dict[str, Any] = field(default_factory=dict)
+    expression_kinds: dict[str, str] = field(default_factory=dict)
+    obs_view: Any = None
+    var_view: Any = None
+    features_aligned: bool = True
+
+    @property
+    def obs(self):
+        """Original single-dataset obs, or the explicitly selected collective obs."""
+        if self.obs_view is not None:
+            return self.obs_view
+        if len(self.obs_frames) == 1:
+            return next(iter(self.obs_frames.values()))
+        return self.metadata_index.df.to_pandas()
+
+    @property
+    def var(self):
+        """Original single-dataset var, or the shared feature axis of a view."""
+        import pandas as pd
+
+        if self.var_view is not None:
+            return self.var_view
+        if len(self.var_frames) == 1 and not self.members:
+            return next(iter(self.var_frames.values()))
+        return pd.DataFrame(index=pd.Index(self.feature_registry.global_feature_ids, name="feature_id"))
+
+    @property
+    def feature_presence(self):
+        """Dataset-by-feature availability; absent features are not measured zeros."""
+        import pandas as pd
+
+        return pd.DataFrame(
+            self.feature_registry.dataset_has_gene,
+            index=self.dataset_ids, columns=self.feature_registry.global_feature_ids,
+        )
 
     @property
     def dataset_ids(self) -> tuple[str, ...]:
@@ -98,7 +135,7 @@ class Corpus:
         dataset_id: str | Sequence[str] | None = None,
         global_row_indices: Sequence[int] | np.ndarray | None = None,
         obs_columns: Sequence[str] | None = None,
-        var_join: Literal["inner", "exact"] = "exact",
+        var_join: Literal["inner", "exact", "outer"] = "exact",
     ):
         """Export selected corpus rows as an in-memory AnnData object.
 
@@ -112,6 +149,13 @@ class Corpus:
         import anndata as ad
         from scipy import sparse
 
+        if self.obs_frames:
+            from .composition import view_to_anndata
+
+            return view_to_anndata(
+                self, dataset_id=dataset_id, global_row_indices=global_row_indices,
+                obs_columns=obs_columns, var_join=var_join, lazy=False,
+            )
         if global_row_indices is not None:
             indices, selected = _resolve_single_dataset_global_indices(
                 self,
@@ -160,11 +204,11 @@ class Corpus:
     def to_anndata_lazy(
         self,
         *,
-        dataset_id: str | Sequence[str],
+        dataset_id: str | Sequence[str] | None = None,
         obs_columns: Sequence[str] | None = None,
         chunk_rows: int = 4096,
         device: str = "cpu",
-        var_join: Literal["inner", "exact"] = "exact",
+        var_join: Literal["inner", "exact", "outer"] = "exact",
     ):
         """Export whole selected dataset(s) as AnnData with Dask-backed ``X``.
 
@@ -173,9 +217,20 @@ class Corpus:
         """
         import anndata as ad
 
+        if self.obs_frames:
+            from .composition import view_to_anndata
+
+            if device != "cpu":
+                raise ValueError("Metadata-view AnnData currently supports device='cpu'")
+            return view_to_anndata(
+                self, dataset_id=dataset_id, obs_columns=obs_columns,
+                var_join=var_join, lazy=True, chunk_rows=chunk_rows,
+            )
         if int(chunk_rows) <= 0:
             raise ValueError("chunk_rows must be positive")
         lazy_device = _normalize_lazy_device(device)
+        if dataset_id is None:
+            dataset_id = self.dataset_ids
         selected = _normalize_dataset_selection(dataset_id)
         var_df, n_vars, mapping = _resolve_var_axis(self, selected, var_join)
         obs = _build_obs_dataframe(self, selected, obs_columns=obs_columns)
@@ -189,6 +244,26 @@ class Corpus:
         )
         return ad.AnnData(X=x, obs=obs, var=_var_dataframe_to_pandas(var_df))
 
+    def write_h5ad(
+        self,
+        path: str | Path,
+        *,
+        dataset_id: str | Sequence[str] | None = None,
+        var_join: Literal["inner", "exact", "outer"] = "exact",
+        chunk_rows: int = 4096,
+    ) -> None:
+        """Write a new h5ad through AnnData's chunked Dask writer.
+
+        Reopen with anndata.read_h5ad(path, backed='r') for a native backed
+        AnnData. This copies expression to a new file; to_anndata_lazy does not.
+        """
+        path = Path(path)
+        if path.exists():
+            raise FileExistsError(path)
+        self.to_anndata_lazy(
+            dataset_id=dataset_id, var_join=var_join, chunk_rows=chunk_rows,
+        ).write_h5ad(path)
+
     def add_obs_meta(
         self,
         frame: Any,
@@ -200,11 +275,17 @@ class Corpus:
         This is runtime-only. The incoming frame must cover every corpus row
         exactly once using explicit join keys.
         """
+        previous_columns = set(self.metadata_index.df.columns)
         self.metadata_index.df = _join_obs_metadata(
             self.metadata_index.df,
             frame,
             on=on,
-        )
+        ).sort("global_row_index")
+        if self.obs_frames:
+            self.obs_view = self.obs.copy()
+            for column in self.metadata_index.df.columns:
+                if column not in previous_columns:
+                    self.obs_view[column] = self.metadata_index.df[column].to_numpy()
 
 # ---------------------------------------------------------------------------
 # Backend name normalisation
@@ -502,6 +583,8 @@ def _resolve_var_axis(
     ``per_dataset_local_to_output`` is ``None`` when axes match exactly
     (local gene index == output column index for all datasets).
     """
+    if var_join not in {"inner", "exact"}:
+        raise ValueError("Legacy corpus export supports var_join='inner' or 'exact'; use a metadata view for outer joins")
     named_vars = {ds_id: _load_sorted_var_frame(corpus, ds_id) for ds_id in dataset_ids}
     first_id = dataset_ids[0]
     first_genes = named_vars[first_id]["canonical_gene_id"].to_list()
@@ -879,6 +962,10 @@ def load_corpus(
         If the corpus topology or backend is unsupported.
     """
     root = Path(corpus_root).resolve()
+    if (root / "corpus.yaml").exists():
+        from .composition import load_standalone
+
+        return load_standalone(root)
     index_path = root / "corpus-index.yaml"
     if not index_path.exists():
         raise FileNotFoundError(

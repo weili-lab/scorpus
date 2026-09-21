@@ -153,7 +153,7 @@ def _extract_list_columns(table, col_name: str) -> tuple[np.ndarray, np.ndarray]
     """
     raw = table.column(col_name).combine_chunks()
     offsets = np.asarray(raw.offsets.to_numpy(), dtype=np.int64)
-    flat = np.asarray(raw.flatten().to_numpy(), dtype=np.int32)
+    flat = np.asarray(raw.flatten().to_numpy())
     return offsets, flat
 
 
@@ -186,7 +186,7 @@ def _cell_arrays_to_expression_batch(
     ec_parts: list[np.ndarray] = []
     for pos, (gene_indices, counts) in enumerate(cells):
         gene_indices = np.asarray(gene_indices, dtype=np.int32)
-        counts = np.asarray(counts, dtype=np.int32)
+        counts = np.asarray(counts)
         egi_parts.append(gene_indices)
         ec_parts.append(counts)
         row_offsets[pos + 1] = row_offsets[pos] + len(gene_indices)

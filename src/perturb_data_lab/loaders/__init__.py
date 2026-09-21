@@ -1,4 +1,4 @@
-"""Public slim-main corpus loader and pertTF API exports."""
+"""Public model-independent corpus loading and sparse processing APIs."""
 
 from .expression import (
     AggregateLanceReader,
@@ -32,19 +32,13 @@ from .corpus_loader import (
     Corpus,
     load_corpus,
 )
+from .composition import concat
 from .sparse_batch import (
     SparseBatchProcessor,
 )
-from .adapters import (
-    PertTFAdapterConfig,
-    PertTFPairedBatchLoader,
-    PertTFPairedBatchBuilder,
-    PerturbationPairBatch,
-    PerturbationPairSampler,
-    PertTFCorpusAdapter,
-)
 
 __all__ = [
+    "concat",
     # Phase 1 — MetadataIndex
     "MetadataIndex",
     # Phase 2 — ExpressionReader (backend-agnostic)
@@ -75,13 +69,6 @@ __all__ = [
     "GeneTokenMapper",
     # Phase 3 — sparse batch processing
     "SparseBatchProcessor",
-    # Phase 4 — pertTF-local adapters
-    "PertTFAdapterConfig",
-    "PertTFPairedBatchLoader",
-    "PertTFPairedBatchBuilder",
-    "PerturbationPairBatch",
-    "PerturbationPairSampler",
-    "PertTFCorpusAdapter",
     # Phase N — Corpus loader factory
     "Corpus",
     "load_corpus",

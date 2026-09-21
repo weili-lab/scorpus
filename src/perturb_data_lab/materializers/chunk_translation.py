@@ -121,6 +121,8 @@ def _translate_chunk(
     matrix_chunk = matrix_chunk.tocsr(copy=False)
     if not isinstance(matrix_chunk, csr_matrix):
         matrix_chunk = csr_matrix(matrix_chunk)
+    if not np.isfinite(matrix_chunk.data).all() or np.any(matrix_chunk.data < 0):
+        raise ValueError(f"{dataset_id}:{chunk_start} counts/recovery inputs must be finite and nonnegative")
 
     # For recovery, eliminate explicit zeros BEFORE extracting components.
     if needs_recovery:
@@ -138,7 +140,10 @@ def _translate_chunk(
     if needs_recovery:
         # --- Vectorized log1p recovery ---
         raw_data = matrix_chunk.data  # may be float32 or float64
-        expm1_data = np.expm1(raw_data)
+        with np.errstate(over="ignore"):
+            expm1_data = np.expm1(raw_data.astype(np.float64))
+        if not np.isfinite(expm1_data).all():
+            raise ValueError(f"{dataset_id}:{chunk_start} recovery would overflow expm1")
 
         # Per-row sums and minima via reduceat (replaces expensive expm1_matrix
         # construction + per-row Python loop). Both np.add.reduceat and
@@ -167,6 +172,8 @@ def _translate_chunk(
             (row_stops - row_starts).astype(np.intp),
         )
         recovered_data = expm1_data / row_min_per_nonzero
+        if not np.isfinite(recovered_data).all() or np.any(recovered_data > np.iinfo(np.int32).max):
+            raise ValueError(f"{dataset_id}:{chunk_start} recovered counts exceed int32 range")
 
         # Integer verification: max deviation from nearest integer must be < 0.01.
         deviations = np.abs(recovered_data - np.rint(recovered_data))
@@ -181,6 +188,8 @@ def _translate_chunk(
     else:
         # --- Integer counts path (no recovery) ---
         raw_data = np.asarray(matrix_chunk.data)
+        if np.any(raw_data > np.iinfo(np.int32).max):
+            raise ValueError(f"{dataset_id}:{chunk_start} counts exceed int32 range")
         if raw_data.dtype.kind not in {"i", "u"}:
             # Float-dtype integer-like matrix: verify and accept.
             nonzero_mask = raw_data != 0
