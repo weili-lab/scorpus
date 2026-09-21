@@ -9,3 +9,4 @@ site/
 .cache/
 artifacts/
 demo_data/
+*.egg-info/

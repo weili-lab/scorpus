@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from perturb_data_lab.materializers.core import _slice_matrix_chunk_as_csr
+from scorpus.materializers.core import _slice_matrix_chunk_as_csr
 
 
 def test_slice_matrix_chunk_as_csr_converts_dense_numpy_rows() -> None:

@@ -26,7 +26,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from perturb_data_lab.canonical.drafting import draft_canonicalization_schema
+from scorpus.canonical.drafting import draft_canonicalization_schema
 
 
 def main() -> None:

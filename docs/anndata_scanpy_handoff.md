@@ -1,9 +1,9 @@
 # AnnData, Scanpy, and RAPIDS handoff
 
-This document describes the boundary between `perturb-data-lab` and standard
+This document describes the boundary between `scorpus` and standard
 single-cell analysis tools.
 
-`perturb-data-lab` owns corpus materialization, canonical metadata, sparse count
+`scorpus` owns corpus materialization, canonical metadata, sparse count
 storage, feature alignment for loaders, durable per-dataset HVG rankings, and
 training/runtime access patterns. After selected corpus rows or datasets are exported
 as `AnnData`, Scanpy or RAPIDS should own the usual analysis preprocessing.
@@ -50,7 +50,7 @@ chunk.
 Use `to_anndata(...)` when the selected rows or whole dataset(s) fit in RAM:
 
 ```python
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders import load_corpus
 
 corpus = load_corpus(
     "/path/to/corpus",
@@ -176,7 +176,7 @@ regular `wilcoxon` or `logreg`.
 
 ## Adding results back to the corpus
 
-`perturb-data-lab` does not decide how Scanpy/RAPIDS outputs are saved. The user
+`scorpus` does not decide how Scanpy/RAPIDS outputs are saved. The user
 owns the AnnData workflow and can add selected cell-level results back to the
 loaded corpus with `add_obs_meta(...)`:
 
@@ -212,7 +212,7 @@ After adding metadata, downstream loaders can use the new columns for sampling o
 pass-through metadata:
 
 ```python
-from perturb_data_lab.loaders import build_loader
+from scorpus.loaders import build_loader
 
 loader = build_loader(
     corpus,
@@ -229,7 +229,7 @@ loader = build_loader(
 Use Scanpy or RAPIDS for normalization, log transforms, PCA, neighbors, UMAP,
 clustering, plotting, batch correction, and exploratory marker ranking.
 
-Use corpus-native `perturb_data_lab.pp` helpers for durable HVG rankings,
+Use corpus-native `scorpus.pp` helpers for durable HVG rankings,
 streamed summary statistics, quick QA/debug checks, and bounded-memory fallback
 workflows when AnnData handoff is not practical.
 

@@ -7,11 +7,11 @@ import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from perturb_data_lab.inspectors.models import (
+from scorpus.inspectors.models import (
     DatasetSummaryDocument,
     InspectionBatchConfig,
 )
-from perturb_data_lab.inspectors.workflow import run_batch
+from scorpus.inspectors.workflow import run_batch
 
 
 def test_inspector_workflow_round_trip(tmp_path: Path) -> None:

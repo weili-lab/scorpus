@@ -5,7 +5,7 @@ import pytest
 import yaml
 from scipy import sparse
 
-from perturb_data_lab import concat, from_h5ad, load_corpus
+from scorpus import concat, from_h5ad, load_corpus
 
 
 def write_data(tmp_path, name="input", values=None, genes=("g1", "g2", "g3")):
@@ -131,7 +131,7 @@ def test_composition_alignment_and_no_copy(tmp_path):
 
 
 def test_cli_conversion(tmp_path, monkeypatch):
-    from perturb_data_lab.cli import main
+    from scorpus.cli import main
     path, _ = write_data(tmp_path)
     monkeypatch.setattr("sys.argv", ["pdl", "convert", "--source", str(path), "--output", str(tmp_path / "cli"), "--chunk-rows", "2"])
     main()

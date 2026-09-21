@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from perturb_data_lab.materializers import update_corpus_index
-from perturb_data_lab.materializers.models import (
+from scorpus.materializers import update_corpus_index
+from scorpus.materializers.models import (
     CountSourceSpec,
     DatasetJoinRecord,
     MaterializationManifest,
@@ -128,7 +128,7 @@ class TestCorpusIndexUpdate:
                 )
 
             # Reload and verify
-            from perturb_data_lab.materializers.models import CorpusIndexDocument
+            from scorpus.materializers.models import CorpusIndexDocument
 
             corpus = CorpusIndexDocument.from_yaml_file(idx_path)
             running_end = 0
@@ -274,10 +274,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_mode_create_default(self):
         """Default mode is 'create' and is stored as instance attribute."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -290,10 +290,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_mode_append(self):
         """mode='append' is accepted and stored."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -307,10 +307,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_rejects_invalid_mode(self):
         """Invalid mode raises ValueError."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         with pytest.raises(ValueError, match="mode must be 'create' or 'append'"):
             DatasetMaterializer(
@@ -324,10 +324,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_writer_state(self):
         """writer_state parameter is stored as instance attribute."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         state = {"lance_path": "/corpus/cells.lance", "initialized": True}
         mat = DatasetMaterializer(
@@ -342,10 +342,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_writer_state_none_default(self):
         """writer_state defaults to None."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -358,10 +358,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_is_last_dataset(self):
         """_is_last_dataset parameter is stored."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -375,10 +375,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_is_last_dataset_default_false(self):
         """_is_last_dataset defaults to False."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -391,10 +391,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_dataset_index_and_global_row_start_defaults(self):
         """dataset_index and global_row_start have sensible defaults."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -408,10 +408,10 @@ class TestDatasetMaterializerConstructorApi:
     def test_constructor_accepts_dataset_index_and_global_row_start(self):
         """dataset_index and global_row_start can be set via constructor."""
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from perturb_data_lab.materializers.models import OutputRoots
+        from scorpus.materializers.models import OutputRoots
 
         mat = DatasetMaterializer(
             source_path="/fake/source.h5ad",
@@ -433,7 +433,7 @@ class TestDatasetMaterializerInspectionGate:
         tmp_path: Path,
     ):
         try:
-            from perturb_data_lab.materializers import DatasetMaterializer
+            from scorpus.materializers import DatasetMaterializer
         except ImportError:
             pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
 

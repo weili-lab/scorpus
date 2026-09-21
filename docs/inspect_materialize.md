@@ -19,7 +19,7 @@ the inspection decision to stream the selected count matrix into a corpus.
 ## Direct CLI Inspection
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli inspect \
+PYTHONPATH=src python -m scorpus.cli inspect \
   --source /path/to/dataset.h5ad \
   --dataset-id my_dataset \
   --output-dir ./artifacts/review
@@ -61,7 +61,7 @@ datasets:
 Run:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli inspect \
+PYTHONPATH=src python -m scorpus.cli inspect \
   --config ./artifacts/inspection-batch.yaml \
   --workers 1
 ```
@@ -95,7 +95,7 @@ inspection decision is resolved.
 Create a new aggregate Lance corpus from one dataset:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode create \
   --source /path/to/dataset.h5ad \
   --dataset-id my_dataset \
@@ -115,7 +115,7 @@ recommended aggregate Lance corpus.
 Append later datasets into the same corpus:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode append \
   --source /path/to/later_dataset.h5ad \
   --dataset-id later_dataset \
@@ -142,7 +142,7 @@ source,dataset_id,inspection_summary
 Then run:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode create \
   --input-list ./artifacts/materialize-inputs.csv \
   --output-corpus ./artifacts/corpus \
@@ -162,7 +162,7 @@ normal inspection output layout.
 Check inputs and print the planned materialization without writing data:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode create \
   --source /path/to/dataset.h5ad \
   --dataset-id my_dataset \
@@ -178,8 +178,8 @@ PYTHONPATH=src python -m perturb_data_lab.cli materialize \
 ```python
 from pathlib import Path
 
-from perturb_data_lab.inspectors import inspect_target
-from perturb_data_lab.inspectors.models import InspectionTarget
+from scorpus.inspectors import inspect_target
+from scorpus.inspectors.models import InspectionTarget
 
 artifacts = inspect_target(
     InspectionTarget(
@@ -201,9 +201,9 @@ For batch inspection in Python, use `InspectionBatchConfig` and `run_batch(...)`
 ```python
 from pathlib import Path
 
-from perturb_data_lab.materializers import DatasetMaterializer
-from perturb_data_lab.materializers.models import OutputRoots
-from perturb_data_lab.materializers.paths import resolve_corpus_paths
+from scorpus.materializers import DatasetMaterializer
+from scorpus.materializers.models import OutputRoots
+from scorpus.materializers.paths import resolve_corpus_paths
 
 corpus_root = Path("./artifacts/corpus")
 dataset_id = "my_dataset"
@@ -280,7 +280,7 @@ corpus/
 Run corpus validation:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli corpus-validate \
+PYTHONPATH=src python -m scorpus.cli corpus-validate \
   ./artifacts/corpus/corpus-index.yaml
 ```
 

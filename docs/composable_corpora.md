@@ -8,7 +8,7 @@ the same sparse expression readers.
 ## One h5ad
 
 ```python
-from perturb_data_lab import from_h5ad, load_corpus, concat
+from scorpus import from_h5ad, load_corpus, concat
 
 a = from_h5ad("a.h5ad", output="a.corpus")
 a = load_corpus("a.corpus")
@@ -19,7 +19,7 @@ print(a.var)  # metadata for the selected matrix's feature axis
 CLI equivalent:
 
 ```bash
-python -m perturb_data_lab.cli convert --source a.h5ad --output a.corpus
+python -m scorpus.cli convert --source a.h5ad --output a.corpus
 ```
 
 Conversion currently writes **standalone Lance corpora**. Existing Lance/Zarr
@@ -142,4 +142,4 @@ recreated from the explicit Python mappings for another run.
 pertTF-specific code now belongs to pertTF. Import its paired adapter from
 `perttf.model.corpus_adapter`, or use
 `perttf.model.corpus_data.produce_corpus_datasets` for the complete training data
-dictionary. There are no pertTF adapter exports in perturb-data-lab.
+dictionary. There are no pertTF adapter exports in scorpus.

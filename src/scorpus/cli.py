@@ -1,4 +1,4 @@
-"""CLI: top-level multi-command interface for the perturb-data-lab workflow.
+"""CLI: top-level multi-command interface for the scorpus workflow.
 
 Commands
 --------
@@ -383,8 +383,8 @@ def _add_materialize_args(sub: argparse.ArgumentParser) -> None:
     # Optional corpus identifier
     sub.add_argument(
         "--corpus-id",
-        default="perturb-data-lab-v0",
-        help="Corpus identifier (default: perturb-data-lab-v0).",
+        default="scorpus-v0",
+        help="Corpus identifier (default: scorpus-v0).",
     )
 
     # Materializer options
@@ -1408,7 +1408,7 @@ def _cmd_canonicalize(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "perturb-data-lab: inspect, materialize, and validate "
+            "scorpus: inspect, materialize, and validate "
             "multi-dataset corpora."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download the perturb-data-lab demo datasets from HuggingFace.
+"""Download the scorpus demo datasets from HuggingFace.
 
 Downloads the two small demo .h5ad files and checksums from
 ``weililab/perturb-data-lab-demo`` into a local directory.
@@ -149,7 +149,7 @@ def _verify_checksums(output_dir: Path) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Download perturb-data-lab demo datasets from HuggingFace.",
+        description="Download scorpus demo datasets from HuggingFace.",
     )
     parser.add_argument(
         "--output-dir",

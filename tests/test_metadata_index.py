@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from perturb_data_lab.loaders.index import MetadataIndex
+from scorpus.loaders.index import MetadataIndex
 
 
 def _meta() -> MetadataIndex:

@@ -1,4 +1,4 @@
-"""Canonicalization layer for perturb-data-lab.
+"""Canonicalization layer for scorpus.
 
 Provides:
 - ``CanonicalObsSchema`` / ``CanonicalVarSchema`` — immutable contracts

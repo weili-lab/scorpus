@@ -5,8 +5,8 @@ from typing import Any, cast
 
 import numpy as np
 
-from perturb_data_lab.materializers.backends.zarr import write_zarr_aggregate
-from perturb_data_lab.materializers.chunk_translation import ChunkBundle
+from scorpus.materializers.backends.zarr import write_zarr_aggregate
+from scorpus.materializers.chunk_translation import ChunkBundle
 
 
 def _bundle(global_start: int, indptr: list[int], indices: list[int]) -> ChunkBundle:

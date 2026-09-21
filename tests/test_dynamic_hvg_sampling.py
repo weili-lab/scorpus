@@ -7,7 +7,7 @@ import pyarrow as pa
 import torch
 import yaml
 
-from perturb_data_lab.loaders import FeatureRegistry, SparseBatchProcessor, build_loader, load_corpus
+from scorpus.loaders import FeatureRegistry, SparseBatchProcessor, build_loader, load_corpus
 
 
 def _write_canonical_obs(

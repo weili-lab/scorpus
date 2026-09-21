@@ -1,10 +1,14 @@
-# perturb-data-lab Design
+# scorpus Design
 
 This document describes how the current repository works. It is not a future
 plan and it does not document removed backend experiments.
 
-`perturb-data-lab` has one main job: turn raw perturb-seq `.h5ad` files into a
-corpus that can be loaded consistently for model training or analysis.
+`scorpus` has one main job: turn single-cell `.h5ad` files into a corpus that
+can be loaded consistently for model training or analysis.
+
+There are two routes to a corpus. **Conversion** is the default and covers most
+use: one call, no schema. **Curation** is an optional reviewed pipeline for
+publishing corpora with audited, harmonized metadata.
 
 ## Core Ideas
 
@@ -28,7 +32,19 @@ Aggregate topology stores matrix data under one corpus-level `matrix/` root and
 metadata under `meta/<dataset_id>/`. Federated topology stores each dataset as a
 self-contained `<dataset_id>/meta` and `<dataset_id>/matrix` directory.
 
-## Current Data Flow
+## Data Flow
+
+The default route is direct conversion:
+
+```text
+source h5ad
+  -> from_h5ad()            standalone conversion, no schema required
+  -> concat()               optional in-memory composition
+  -> load_corpus()
+  -> model loader or AnnData handoff
+```
+
+The curated route adds reviewed metadata for corpus releases:
 
 ```text
 source h5ad
@@ -40,24 +56,18 @@ source h5ad
   -> downstream loaders or analysis helpers
 ```
 
-For direct conversion and temporary multi-dataset views, the shorter route is:
-
-```text
-source h5ad
-  -> standalone conversion
-  -> optional in-memory composition
-  -> load_corpus()
-  -> model-specific loader or analysis handoff
-```
+Both routes return the same `Corpus` object and share the same sparse
+expression readers. `load_corpus()` dispatches on which manifest it finds:
+`corpus.yaml` for a converted corpus, `corpus-index.yaml` for a curated one.
 
 The user-facing how-to docs are split by task:
 
-- Inspection and materialization: `docs/inspect_materialize.md`
-- Canonical schema review and canonicalization: `docs/canonicalization_handbook.md`
-- Direct conversion and temporary composition: `docs/composable_corpora.md`
-- pertTF paired loading: `docs/perttf_loader.md` and the pertTF worktree's tutorials
+- Conversion and composition: `docs/composable_corpora.md`
 - AnnData/Scanpy/RAPIDS handoff and corpus-native pp helpers: `docs/anndata_scanpy_handoff.md`
 - Backend policy: `docs/backend_note.md`
+- Inspection and materialization (curated route): `docs/inspect_materialize.md`
+- Canonical schema review and canonicalization (curated route): `docs/canonicalization_handbook.md`
+- pertTF paired loading: `docs/perttf_loader.md` and the pertTF worktree's tutorials
 
 ## 1. Inspection
 
@@ -184,7 +194,7 @@ It builds:
 Common runtime calls:
 
 ```python
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders import load_corpus
 
 corpus = load_corpus("/path/to/corpus")
 expr = corpus.expression_reader.read_expression_flat([0, 1, 2])

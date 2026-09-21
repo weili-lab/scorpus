@@ -9,13 +9,13 @@ import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix
 
-from perturb_data_lab.inspectors.models import (
+from scorpus.inspectors.models import (
     DatasetSummaryDocument,
     InspectionBatchConfig,
 )
-from perturb_data_lab.inspectors.workflow import run_batch
-from perturb_data_lab.materializers import DatasetMaterializer
-from perturb_data_lab.materializers.models import OutputRoots
+from scorpus.inspectors.workflow import run_batch
+from scorpus.materializers import DatasetMaterializer
+from scorpus.materializers.models import OutputRoots
 
 
 def test_dataset_materializer_rejects_obs_filter_before_writing_outputs(

@@ -12,7 +12,7 @@ import torch
 import yaml
 from torch.utils.data import DataLoader
 
-from perturb_data_lab.loaders import (
+from scorpus.loaders import (
     CorpusRandomBatchSampler,
     ContextBatchSampler,
     ExpressionBatchDataset,
@@ -20,9 +20,9 @@ from perturb_data_lab.loaders import (
     build_loader,
     collate_expression_batch,
 )
-from perturb_data_lab.loaders.corpus_loader import Corpus, load_corpus
-from perturb_data_lab.loaders.zarr_reading import open_csr_arrays
-from perturb_data_lab.loaders.validation import validate_corpus_structure
+from scorpus.loaders.corpus_loader import Corpus, load_corpus
+from scorpus.loaders.zarr_reading import open_csr_arrays
+from scorpus.loaders.validation import validate_corpus_structure
 
 
 N_GENES = 8

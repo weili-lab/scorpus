@@ -154,7 +154,7 @@ def from_h5ad(
                 output / "statistics.parquet", index=False,
             )
         manifest = {
-            "format": "perturb-data-lab", "version": 1,
+            "format": "scorpus", "version": 1,
             "backend": "lance", "source": str(source.resolve()),
             "matrix_source": selected, "expression_kind": kind,
             "shape": [len(obs), len(var)],

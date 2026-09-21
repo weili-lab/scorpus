@@ -1,6 +1,6 @@
 kind: global-metadata
 contract_version: 0.3.0
-corpus_id: perturb-data-lab-v0
+corpus_id: scorpus-v0
 missing_value_literal: NA
 raw_field_policy: preserve-unchanged
 backend: lance

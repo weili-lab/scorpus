@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from perturb_data_lab.loaders import FeatureRegistry
+from scorpus.loaders import FeatureRegistry
 
 
 def _write_canonical_var(path: Path, genes: list[str]) -> None:

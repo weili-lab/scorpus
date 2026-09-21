@@ -12,15 +12,15 @@ from pathlib import Path
 import numpy as np
 import pyarrow.parquet as pq
 
-from perturb_data_lab.contracts import CONTRACT_VERSION
-from perturb_data_lab.materializers import (
+from scorpus.contracts import CONTRACT_VERSION
+from scorpus.materializers import (
     update_corpus_index,
 )
-from perturb_data_lab.materializers.metadata_writers import (
+from scorpus.materializers.metadata_writers import (
     HVG_RANKING_SCHEMA,
     _build_hvg_ranking_table,
 )
-from perturb_data_lab.materializers.models import (
+from scorpus.materializers.models import (
     CountSourceSpec,
     DatasetJoinRecord,
     MaterializationManifest,
@@ -78,7 +78,7 @@ class TestHVGRankingParquet:
         assert frame["selected_at_default_n_hvg"].tolist() == [True, True, False]
 
     def test_hvg_writer_writes_hvg_parquet(self, tmp_path: Path):
-        from perturb_data_lab.materializers.metadata_writers import write_hvg_ranking_parquet
+        from scorpus.materializers.metadata_writers import write_hvg_ranking_parquet
 
         path = write_hvg_ranking_parquet(
             sum_log1p=np.array([6.0, 2.0, 5.0], dtype=np.float64),

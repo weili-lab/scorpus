@@ -11,15 +11,15 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import yaml
 
-from perturb_data_lab.cli import _cmd_recalc_hvg, build_parser
-from perturb_data_lab.loaders import load_corpus
-from perturb_data_lab.materializers.models import (
+from scorpus.cli import _cmd_recalc_hvg, build_parser
+from scorpus.loaders import load_corpus
+from scorpus.materializers.models import (
     CountSourceSpec,
     MaterializationManifest,
     OutputRoots,
     ProvenanceSpec,
 )
-from perturb_data_lab.pp import calculate_hvgs, recalc_hvg
+from scorpus.pp import calculate_hvgs, recalc_hvg
 
 
 def _write_feature_meta(meta_root: Path, feature_ids: list[str]) -> Path:

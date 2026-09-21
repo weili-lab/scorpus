@@ -41,9 +41,16 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None
     return pl.DataFrame(structural).hstack(user) if user.width else pl.DataFrame(structural)
 
 
+# Corpora written before the scorpus rename carry the old format identifier.
+STANDALONE_FORMATS = ("scorpus", "perturb-data-lab")
+
+
 def load_standalone(root: Path) -> Corpus:
     manifest = yaml.safe_load((root / "corpus.yaml").read_text())
-    if (manifest["format"], manifest["version"], manifest["backend"]) != ("perturb-data-lab", 1, "lance"):
+    if (
+        manifest["format"] not in STANDALONE_FORMATS
+        or (manifest["version"], manifest["backend"]) != (1, "lance")
+    ):
         raise ValueError("Unsupported standalone corpus format/version/backend")
     obs = pd.read_parquet(root / "obs.parquet")
     var = pd.read_parquet(root / "var.parquet")
