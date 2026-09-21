@@ -1,4 +1,4 @@
-"""Focused tests for streamed ``perturb_data_lab.pp`` helpers."""
+"""Focused tests for streamed ``scorpus.pp`` helpers."""
 
 from __future__ import annotations
 
@@ -13,10 +13,10 @@ from scipy import sparse
 from scipy.stats import t as student_t
 import yaml
 
-from perturb_data_lab.loaders import load_corpus
-from perturb_data_lab.materializers.backends import build_backend_fn
-from perturb_data_lab.materializers.chunk_translation import ChunkBundle
-from perturb_data_lab.pp import (
+from scorpus.loaders import load_corpus
+from scorpus.materializers.backends import build_backend_fn
+from scorpus.materializers.chunk_translation import ChunkBundle
+from scorpus.pp import (
     build_pp_provenance,
     calculate_hvgs,
     calculate_lognorm_stats,
@@ -954,7 +954,7 @@ def test_run_pca_incremental_pca_errors_clearly_when_sklearn_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import perturb_data_lab.pp.pca as pca_module
+    import scorpus.pp.pca as pca_module
 
     _build_mock_federated_lance_corpus(tmp_path)
     corpus = load_corpus(str(tmp_path))

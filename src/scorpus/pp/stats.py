@@ -199,7 +199,7 @@ def _finalize_dataset_stats(
 
 def _resolve_software_version() -> str | None:
     try:
-        return package_version("perturb-data-lab")
+        return package_version("scorpus")
     except PackageNotFoundError:
         return None
 

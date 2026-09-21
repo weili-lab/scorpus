@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 import torch
 
-from perturb_data_lab.loaders import FeatureRegistry, GeneTokenMapper
+from scorpus.loaders import FeatureRegistry, GeneTokenMapper
 
 
 def _registry() -> FeatureRegistry:

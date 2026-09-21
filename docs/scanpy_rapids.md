@@ -17,7 +17,7 @@ For the full API surface, see
 ## Load the demo corpus
 
 ```python
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders import load_corpus
 
 corpus = load_corpus(
     "./artifacts/demo_corpus",

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from perturb_data_lab.cli import (
+from scorpus.cli import (
     _DatasetInput,
     _infer_backend_topology_from_corpus,
     _materialize_dataset,
@@ -299,7 +299,7 @@ class TestMaterializeDatasetRouting:
     """Verify _materialize_dataset routes aggregate matrix_root correctly."""
 
     def test_lance_aggregate_uses_corpus_wide_matrix_root(self, tmp_path: Path, monkeypatch):
-        import perturb_data_lab.materializers as materializers_mod
+        import scorpus.materializers as materializers_mod
 
         captured: dict[str, object] = {}
 
@@ -355,7 +355,7 @@ class TestMaterializeDatasetRouting:
         assert next_writer_state == {"dummy": "state"}
 
     def test_lance_federated_uses_dataset_matrix_root(self, tmp_path: Path, monkeypatch):
-        import perturb_data_lab.materializers as materializers_mod
+        import scorpus.materializers as materializers_mod
 
         captured: dict[str, object] = {}
 
@@ -602,7 +602,7 @@ class TestCorpusValidateCmd:
     """Test corpus-validate command."""
 
     def test_validate_rejects_missing_corpus_index(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_validate
+        from scorpus.cli import _cmd_corpus_validate
 
         args = argparse.Namespace(
             corpus_index=str(tmp_path / "nonexistent.yaml"),
@@ -613,7 +613,7 @@ class TestCorpusValidateCmd:
         assert exc_info.value.code == 1
 
     def test_validate_detects_missing_manifest(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_validate
+        from scorpus.cli import _cmd_corpus_validate
 
         idx_path = tmp_path / "corpus-index.yaml"
         idx_data = {
@@ -641,7 +641,7 @@ class TestCorpusValidateCmd:
         assert exc_info.value.code == 1
 
     def test_validate_passes_clean_corpus(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_validate
+        from scorpus.cli import _cmd_corpus_validate
 
         idx_path = tmp_path / "corpus-index.yaml"
 
@@ -700,7 +700,7 @@ class TestCorpusComposeCmd:
     """Test corpus-compose command."""
 
     def test_compose_selected_datasets_as_symlinks(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_compose
+        from scorpus.cli import _cmd_corpus_compose
 
         source = tmp_path / "source"
         output = tmp_path / "output"
@@ -731,7 +731,7 @@ class TestCorpusComposeCmd:
         assert "corpus-compose" in captured.out
 
     def test_compose_rejects_backend_mismatch(self, tmp_path: Path):
-        from perturb_data_lab.cli import _cmd_corpus_compose
+        from scorpus.cli import _cmd_corpus_compose
 
         source_a = tmp_path / "source_a"
         source_b = tmp_path / "source_b"
@@ -749,7 +749,7 @@ class TestCorpusComposeCmd:
             _cmd_corpus_compose(args)
 
     def test_compose_rejects_aggregate_corpus(self, tmp_path: Path):
-        from perturb_data_lab.cli import _cmd_corpus_compose
+        from scorpus.cli import _cmd_corpus_compose
 
         source = tmp_path / "source"
         _write_compose_input_corpus(source, topology="aggregate", datasets=(("datasetA", 2),))
@@ -774,7 +774,7 @@ class TestCorpusGcCmd:
     """Test corpus-gc command."""
 
     def test_gc_rejects_missing_corpus_index(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_gc
+        from scorpus.cli import _cmd_corpus_gc
 
         args = argparse.Namespace(
             corpus_root=str(tmp_path / "nonexistent"),
@@ -785,7 +785,7 @@ class TestCorpusGcCmd:
         assert exc_info.value.code == 1
 
     def test_gc_no_orphans_prints_message(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_gc
+        from scorpus.cli import _cmd_corpus_gc
 
         # Create corpus index with one dataset
         idx_path = tmp_path / "corpus-index.yaml"
@@ -817,7 +817,7 @@ class TestCorpusGcCmd:
         assert "no orphaned dataset directories" in captured.out
 
     def test_gc_detects_orphans(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_gc
+        from scorpus.cli import _cmd_corpus_gc
 
         # Create corpus index with registered dataset
         idx_path = tmp_path / "corpus-index.yaml"
@@ -859,7 +859,7 @@ class TestCorpusGcCmd:
         assert not orphan_dir.exists()
 
     def test_gc_dry_run_does_not_remove(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_corpus_gc
+        from scorpus.cli import _cmd_corpus_gc
 
         idx_path = tmp_path / "corpus-index.yaml"
         idx_data = {
@@ -1077,7 +1077,7 @@ class TestCanonicalizeDiscovery:
             _infer_backend_topology_from_corpus(corpus_root)
 
     def test_resolve_sidecars_from_corpus(self, tmp_path: Path):
-        from perturb_data_lab.cli import _resolve_sidecars_from_corpus
+        from scorpus.cli import _resolve_sidecars_from_corpus
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1134,7 +1134,7 @@ class TestCanonicalizeDiscovery:
         assert size_factor == str(manifest_dir / "size-factor.parquet")
 
     def test_resolve_sidecars_no_size_factor(self, tmp_path: Path):
-        from perturb_data_lab.cli import _resolve_sidecars_from_corpus
+        from scorpus.cli import _resolve_sidecars_from_corpus
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1188,7 +1188,7 @@ class TestCanonicalizeDiscovery:
         assert size_factor is None
 
     def test_resolve_sidecars_raises_on_missing_corpus(self, tmp_path: Path):
-        from perturb_data_lab.cli import _resolve_sidecars_from_corpus
+        from scorpus.cli import _resolve_sidecars_from_corpus
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1198,7 +1198,7 @@ class TestCanonicalizeDiscovery:
             _resolve_sidecars_from_corpus("dummy_00", corpus_root)
 
     def test_resolve_sidecars_raises_on_missing_dataset(self, tmp_path: Path):
-        from perturb_data_lab.cli import _resolve_sidecars_from_corpus
+        from scorpus.cli import _resolve_sidecars_from_corpus
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1225,7 +1225,7 @@ class TestCanonicalizeDiscovery:
             _resolve_sidecars_from_corpus("dummy_99", corpus_root)
 
     def test_resolve_sidecars_raises_on_missing_manifest(self, tmp_path: Path):
-        from perturb_data_lab.cli import _resolve_sidecars_from_corpus
+        from scorpus.cli import _resolve_sidecars_from_corpus
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1256,7 +1256,7 @@ class TestCanonicalizeCmd:
     """Test _cmd_canonicalize behavior via direct invocation."""
 
     def test_cmd_rejects_when_no_final_schemas_discovered(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_canonicalize
+        from scorpus.cli import _cmd_canonicalize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1286,7 +1286,7 @@ class TestCanonicalizeCmd:
         assert exc_info.value.code == 1
 
     def test_cmd_rejects_unknown_dataset_id(self, tmp_path: Path, capsys):
-        from perturb_data_lab.cli import _cmd_canonicalize
+        from scorpus.cli import _cmd_canonicalize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1309,7 +1309,7 @@ class TestCanonicalizeCmd:
 
     def test_cmd_accepts_incremental_mode_flags(self, tmp_path: Path, capsys):
         """Incremental mode with final-schema in corpus meta succeeds in dry-run."""
-        from perturb_data_lab.cli import _cmd_canonicalize
+        from scorpus.cli import _cmd_canonicalize
 
         # Create manifest and corpus needed for sidecar resolution
         corpus_root = tmp_path / "corpus"
@@ -1381,8 +1381,8 @@ class TestCanonicalizeCmd:
         monkeypatch,
         capsys,
     ):
-        from perturb_data_lab.canonical.runner import CanonicalizationResult
-        from perturb_data_lab.cli import _cmd_canonicalize
+        from scorpus.canonical.runner import CanonicalizationResult
+        from scorpus.cli import _cmd_canonicalize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1446,11 +1446,11 @@ class TestCanonicalizeCmd:
             )
 
         monkeypatch.setattr(
-            "perturb_data_lab.cli._resolve_sidecars_from_corpus",
+            "scorpus.cli._resolve_sidecars_from_corpus",
             _fake_sidecars,
         )
         monkeypatch.setattr(
-            "perturb_data_lab.canonical.run_canonicalization",
+            "scorpus.canonical.run_canonicalization",
             _fake_run_canonicalization,
         )
 
@@ -1470,7 +1470,7 @@ class TestInspectCmd:
     """Test _cmd_inspect behavior for batch and direct modes."""
 
     def test_cmd_inspect_rejects_mixed_batch_and_direct_flags(self):
-        from perturb_data_lab.cli import _cmd_inspect
+        from scorpus.cli import _cmd_inspect
 
         args = argparse.Namespace(
             config="/tmp/config.yaml",
@@ -1484,7 +1484,7 @@ class TestInspectCmd:
         assert exc_info.value.code == 1
 
     def test_cmd_inspect_direct_mode(self, tmp_path: Path, monkeypatch):
-        from perturb_data_lab.cli import _cmd_inspect
+        from scorpus.cli import _cmd_inspect
 
         source = tmp_path / "dummy.h5ad"
         source.write_text("not-real-h5ad")
@@ -1502,7 +1502,7 @@ class TestInspectCmd:
             return _Artifacts()
 
         monkeypatch.setattr(
-            "perturb_data_lab.inspectors.workflow.inspect_target",
+            "scorpus.inspectors.workflow.inspect_target",
             _fake_inspect_target,
         )
 
@@ -1528,7 +1528,7 @@ class TestDraftSchemaCmd:
         self,
         tmp_path: Path,
     ):
-        from perturb_data_lab.cli import _cmd_draft_schema
+        from scorpus.cli import _cmd_draft_schema
 
         corpus_root = tmp_path / "corpus"
         meta_root = corpus_root / "meta" / "dummy_00"
@@ -1604,8 +1604,8 @@ class TestDraftSchemaCmd:
         assert (meta_root / "draft-schema.yaml").exists()
 
     def test_cmd_draft_schema_uses_inspection_suggestions(self, tmp_path: Path):
-        from perturb_data_lab.canonical.contract import CanonicalizationSchema
-        from perturb_data_lab.cli import _cmd_draft_schema
+        from scorpus.canonical.contract import CanonicalizationSchema
+        from scorpus.cli import _cmd_draft_schema
 
         corpus_root = tmp_path / "corpus"
         meta_root = corpus_root / "meta" / "dummy_00"
@@ -1709,7 +1709,7 @@ class TestMaterializeCmd:
         tmp_path: Path,
         monkeypatch,
     ):
-        from perturb_data_lab.cli import _cmd_materialize
+        from scorpus.cli import _cmd_materialize
 
         h5ad = tmp_path / "dummy_00.h5ad"
         h5ad.write_text("fake")
@@ -1742,7 +1742,7 @@ class TestMaterializeCmd:
             return (0, None)
 
         monkeypatch.setattr(
-            "perturb_data_lab.cli._materialize_dataset",
+            "scorpus.cli._materialize_dataset",
             _fake_materialize_dataset,
         )
 
@@ -1756,7 +1756,7 @@ class TestMaterializeCmd:
         tmp_path: Path,
         monkeypatch,
     ):
-        from perturb_data_lab.cli import _cmd_materialize
+        from scorpus.cli import _cmd_materialize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1798,7 +1798,7 @@ class TestMaterializeCmd:
             return (0, None)
 
         monkeypatch.setattr(
-            "perturb_data_lab.cli._materialize_dataset",
+            "scorpus.cli._materialize_dataset",
             _fake_materialize_dataset,
         )
 
@@ -1812,7 +1812,7 @@ class TestMaterializeCmd:
         tmp_path: Path,
         monkeypatch,
     ):
-        from perturb_data_lab.cli import _cmd_materialize
+        from scorpus.cli import _cmd_materialize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1862,7 +1862,7 @@ class TestMaterializeCmd:
             return (kwargs["global_row_start"], None)
 
         monkeypatch.setattr(
-            "perturb_data_lab.cli._materialize_dataset",
+            "scorpus.cli._materialize_dataset",
             _fake_materialize_dataset,
         )
 
@@ -1876,7 +1876,7 @@ class TestMaterializeCmd:
         tmp_path: Path,
         monkeypatch,
     ):
-        from perturb_data_lab.cli import _cmd_materialize
+        from scorpus.cli import _cmd_materialize
 
         corpus_root = tmp_path / "corpus"
         corpus_root.mkdir()
@@ -1935,7 +1935,7 @@ class TestMaterializeCmd:
             return (kwargs["global_row_start"] + fake_cell_counts[ds.dataset_id], None)
 
         monkeypatch.setattr(
-            "perturb_data_lab.cli._materialize_dataset",
+            "scorpus.cli._materialize_dataset",
             _fake_materialize_dataset,
         )
 

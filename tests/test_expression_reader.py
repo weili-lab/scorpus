@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from perturb_data_lab.loaders.expression import (
+from scorpus.loaders.expression import (
     AggregateLanceReader,
     AggregateZarrReader,
     DatasetEntry,
@@ -18,7 +18,7 @@ from perturb_data_lab.loaders.expression import (
     ZarrDatasetEntry,
     build_expression_reader,
 )
-from perturb_data_lab.loaders.expression import ExpressionBatch
+from scorpus.loaders.expression import ExpressionBatch
 
 _ARCHIVED_ROOT = (
     Path("/autofs/projects-t3/lilab/yangqisu/repos/data_perturb_v2")

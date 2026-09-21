@@ -81,7 +81,7 @@ the corpus root.
 Draft schemas after materialization:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli draft-schema \
+PYTHONPATH=src python -m scorpus.cli draft-schema \
   --corpus /path/to/corpus
 ```
 
@@ -94,7 +94,7 @@ same dataset metadata directory.
 Dry-run canonicalization:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus /path/to/corpus \
   --dry-run
 ```
@@ -102,14 +102,14 @@ PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
 Canonicalize all datasets that have `final-schema.yaml`:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus /path/to/corpus
 ```
 
 Canonicalize one dataset:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus /path/to/corpus \
   --dataset-id my_dataset
 ```

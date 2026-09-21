@@ -1,4 +1,4 @@
-"""CLI: top-level multi-command interface for the perturb-data-lab workflow.
+"""CLI: top-level multi-command interface for the scorpus workflow.
 
 Commands
 --------
@@ -383,8 +383,8 @@ def _add_materialize_args(sub: argparse.ArgumentParser) -> None:
     # Optional corpus identifier
     sub.add_argument(
         "--corpus-id",
-        default="perturb-data-lab-v0",
-        help="Corpus identifier (default: perturb-data-lab-v0).",
+        default="scorpus-v0",
+        help="Corpus identifier (default: scorpus-v0).",
     )
 
     # Materializer options
@@ -1408,12 +1408,20 @@ def _cmd_canonicalize(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "perturb-data-lab: inspect, materialize, and validate "
+            "scorpus: inspect, materialize, and validate "
             "multi-dataset corpora."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", metavar="COMMAND", required=True)
+
+    p_convert = sub.add_parser("convert", help="Convert one h5ad with original metadata; no schema required.")
+    p_convert.add_argument("--source", required=True, type=Path)
+    p_convert.add_argument("--output", required=True, type=Path)
+    p_convert.add_argument("--layers", help="Select raw, X, or one layer name")
+    p_convert.add_argument("--attempt-conversion", action="store_true")
+    p_convert.add_argument("--no-count", action="store_true")
+    p_convert.add_argument("--chunk-rows", type=int, default=4096)
 
     # inspect
     p_inspect = sub.add_parser("inspect", help="Run h5ad inspection batch.")
@@ -1472,7 +1480,16 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command == "inspect":
+    if args.command == "convert":
+        from .conversion import from_h5ad
+
+        from_h5ad(
+            args.source, args.output, layers=args.layers,
+            attempt_conversion=args.attempt_conversion, no_count=args.no_count,
+            chunk_rows=args.chunk_rows,
+        )
+        print(f"Converted corpus: {args.output}")
+    elif args.command == "inspect":
         _cmd_inspect(args)
     elif args.command == "materialize":
         _cmd_materialize(args)

@@ -1,12 +1,28 @@
-# perturb-data-lab
+# scorpus
 
-A demo-first walkthrough for perturb-seq data preprocessing and loading.
+Sparse single-cell corpora that are cheap to random-access, easy to compose, and
+ready to hand back to AnnData.
 
-`perturb-data-lab` turns raw `.h5ad` files into sparse on-disk corpora, adds
-reviewed canonical metadata, and exposes a common runtime API for model training
-or downstream analysis.
+`scorpus` turns `.h5ad` files into sparse on-disk corpora. Conversion is one
+call — no schema, no intermediate artifacts — and composing several datasets
+into a training corpus is ordinary pandas plus an explicit column mapping.
+
+```python
+from scorpus import from_h5ad
+
+corpus = from_h5ad("dataset.h5ad", "dataset.corpus")
+adata = corpus.to_anndata_lazy()   # original obs/var; expression stays on disk
+```
 
 <div class="grid cards" markdown>
+
+-   :material-flash:{ .lg .middle } __Quickstart__
+
+    ---
+
+    Convert one `.h5ad`, compose several, hand back to AnnData.
+
+    [:octicons-arrow-right-24: Start here](quickstart.md)
 
 -   :material-download:{ .lg .middle } __Installation__
 
@@ -14,78 +30,58 @@ or downstream analysis.
 
     Set up your environment with one command.
 
-    [:octicons-arrow-right-24: Get started](installation.md)
+    [:octicons-arrow-right-24: Install](installation.md)
 
--   :material-console:{ .lg .middle } __Bash Demo__
-
-    ---
-
-    Follow the terminal-only demo from raw files to a loaded corpus.
-
-    [:octicons-arrow-right-24: Bash materialization](bash_demo.md)
-
--   :material-notebook:{ .lg .middle } __Jupyter Demo__
+-   :material-layers-triple:{ .lg .middle } __Conversion & Composition__
 
     ---
 
-    Run the notebook version, or view the rendered walkthrough with cell outputs.
+    Count policies, recovery, feature alignment, and temporary federation.
 
-    [:octicons-arrow-right-24: Jupyter materialization](jupyter_demo.md)
-    · [Rendered notebook](demo_walkthrough.ipynb)
-
--   :material-tag:{ .lg .middle } __Canonicalization__
-
-    ---
-
-    Understand how raw metadata becomes canonical labels.
-
-    [:octicons-arrow-right-24: Schema decisions](demo_canonicalization.md)
-
--   :material-dna:{ .lg .middle } __pertTF Loader__
-
-    ---
-
-    Feed canonicalized corpora into pertTF-style paired batches.
-
-    [:octicons-arrow-right-24: pertTF loading](perttf_loader.md)
+    [:octicons-arrow-right-24: Reference](composable_corpora.md)
 
 -   :material-chart-scatter-plot:{ .lg .middle } __Scanpy & RAPIDS__
 
     ---
 
-    Export AnnData, run Scanpy preprocessing, and explore GPU acceleration.
+    Export AnnData, run Scanpy preprocessing, explore GPU acceleration.
 
-    [:octicons-arrow-right-24: Scanpy/RAPIDS](scanpy_rapids.md)
+    [:octicons-arrow-right-24: Analysis handoff](scanpy_rapids.md)
 
 </div>
 
-## Quick demo overview
+## What it is for
 
-The demo starts from two small HuggingFace-hosted `.h5ad` subsets (one Marson
-CRISPRi, one Xorion dual-guide) and ends with a canonicalized corpus that can
-feed `PertTFPairedBatchLoader` and export Dask-backed AnnData for Scanpy.
+- **Large model training** — sparse batch loading straight off disk.
+- **Perturbation model training** — paired sampling with fast random access.
+- **Routine single-cell analysis** — hand the corpus back to Scanpy/RAPIDS.
+
+## Two routes to a corpus
+
+Conversion is the default and covers most use:
 
 ```text
-HuggingFace download
-  -> inspect
-  -> materialize federated Lance corpus (both datasets at once)
-  -> copy reviewed schemas
-  -> canonicalize
-  -> load_corpus()
-  -> pertTF paired batches
-  -> AnnData + Scanpy
+source h5ad -> from_h5ad() -> concat() -> load_corpus() -> loader or AnnData
 ```
 
-Start with [Installation](installation.md) and then follow the
-[Bash demo](bash_demo.md), [Jupyter demo](jupyter_demo.md), or the
-[rendered notebook](demo_walkthrough.ipynb).
+Curation is an optional reviewed pipeline for publishing corpora with audited,
+harmonized metadata:
 
-## Reference docs
+```text
+source h5ad -> inspect -> materialize -> canonicalize -> load_corpus()
+```
 
-- [Inspection & Materialization](inspect_materialize.md) — how raw `.h5ad`
-  files become materialized corpora
-- [Canonicalization Handbook](canonicalization_handbook.md) — the full schema
-  contract and canonicalization reference
-- [Backend Notes](backend_note.md) — storage backend policy and selection
-- [AnnData Handoff API](anndata_scanpy_handoff.md) — corpus-to-AnnData export
-  and Scanpy/RAPIDS boundary
+Both return the same `Corpus` object and share the same sparse expression
+readers. `load_corpus()` works out which one it is from the manifest on disk.
+
+Most users only need the first. The curated route is documented under
+[Curated Corpora](bash_demo.md).
+
+## Reference
+
+- [Conversion & composition](composable_corpora.md) — count policies, recovery,
+  native backed h5ad export, temporary federation
+- [AnnData handoff](anndata_scanpy_handoff.md) — corpus-to-AnnData export and
+  the Scanpy/RAPIDS boundary
+- [Backend notes](backend_note.md) — storage backend policy and selection
+- [pertTF integration](perttf_loader.md) — where the paired loader now lives

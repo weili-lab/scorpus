@@ -31,6 +31,8 @@ def _import_lance():
 
 def _bundle_to_table(bundle: ChunkBundle) -> pa.Table:
     offsets = pa.array(bundle.indptr.astype("int32", copy=False), type=pa.int32())
+    value_type = pa.from_numpy_dtype(bundle.counts.dtype)
+    schema = HEAVY_CELL_SCHEMA.set(2, pa.field("expression_counts", pa.list_(value_type)))
     return pa.table(
         {
             "global_row_index": pa.array(bundle.global_row_index, type=pa.int64()),
@@ -40,10 +42,10 @@ def _bundle_to_table(bundle: ChunkBundle) -> pa.Table:
             ),
             "expression_counts": pa.ListArray.from_arrays(
                 offsets,
-                pa.array(bundle.counts.astype("int32", copy=False), type=pa.int32()),
+                pa.array(bundle.counts, type=value_type),
             ),
         },
-        schema=HEAVY_CELL_SCHEMA,
+        schema=schema,
     )
 
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from perturb_data_lab.cli import BACKEND_CHOICES
-from perturb_data_lab.loaders.corpus_loader import _normalize_backend
-from perturb_data_lab.loaders.expression import DatasetEntry, build_expression_reader
-from perturb_data_lab.materializers.backends import AVAILABLE_WRITERS, build_backend_fn
+from scorpus.cli import BACKEND_CHOICES
+from scorpus.loaders.corpus_loader import _normalize_backend
+from scorpus.loaders.expression import DatasetEntry, build_expression_reader
+from scorpus.materializers.backends import AVAILABLE_WRITERS, build_backend_fn
 
 
 def test_cli_backend_choices_are_lance_and_zarr_only() -> None:
@@ -64,4 +64,4 @@ def test_removed_expression_readers_raise_clear_error(backend: str) -> None:
 )
 def test_removed_expression_symbols_are_not_exported_from_loaders(symbol: str) -> None:
     with pytest.raises(ImportError):
-        exec(f"from perturb_data_lab.loaders import {symbol}", {}, {})
+        exec(f"from scorpus.loaders import {symbol}", {}, {})

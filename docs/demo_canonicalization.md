@@ -28,11 +28,11 @@ before writing canonical metadata:
 ```bash
 PYTHONPATH=src python scripts/install_demo_schemas.py --corpus ./artifacts/demo_corpus
 
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus ./artifacts/demo_corpus \
   --dry-run
 
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus ./artifacts/demo_corpus
 ```
 

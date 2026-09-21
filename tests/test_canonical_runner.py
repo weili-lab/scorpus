@@ -11,7 +11,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from perturb_data_lab.canonical.contract import (
+from scorpus.canonical.contract import (
     CANONICAL_OBS_MUST_HAVE,
     CANONICAL_VAR_MUST_HAVE,
     CanonicalVocab,
@@ -23,13 +23,13 @@ from perturb_data_lab.canonical.contract import (
     TransformRule,
     VarColumnMapping,
 )
-from perturb_data_lab.canonical.runner import (
+from scorpus.canonical.runner import (
     CanonicalizationRunner,
     CanonicalizationResult,
     build_canonical_vocab,
     run_canonicalization,
 )
-from perturb_data_lab.canonical.transforms import TRANSFORM_CATALOG, get_transform
+from scorpus.canonical.transforms import TRANSFORM_CATALOG, get_transform
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -510,13 +510,13 @@ class TestGeneMapping:
 
     def test_identity_mapping(self):
         """Identity mapping returns each gene_id as its own canonical."""
-        from perturb_data_lab.canonical.runner import _gene_map_identity
+        from scorpus.canonical.runner import _gene_map_identity
         result = _gene_map_identity(["gene1", "gene2", "gene3"])
         assert result == {"gene1": "gene1", "gene2": "gene2", "gene3": "gene3"}
 
     def test_file_mapping(self, tmp_path: Path):
         """Mapping file maps gene_ids to canonical_gene_ids."""
-        from perturb_data_lab.canonical.runner import _gene_map_file
+        from scorpus.canonical.runner import _gene_map_file
 
         mapping_file = tmp_path / "mapping.tsv"
         mapping_file.write_text("gene1\tENSG0001\ngene2\tENSG0002\n")
@@ -526,7 +526,7 @@ class TestGeneMapping:
 
     def test_file_mapping_comments_skipped(self, tmp_path: Path):
         """Lines starting with # are skipped."""
-        from perturb_data_lab.canonical.runner import _gene_map_file
+        from scorpus.canonical.runner import _gene_map_file
 
         mapping_file = tmp_path / "mapping.tsv"
         mapping_file.write_text("# comment\n# another\ngene1\tENSG0001\n")
@@ -536,7 +536,7 @@ class TestGeneMapping:
 
     def test_file_mapping_empty_lines_skipped(self, tmp_path: Path):
         """Empty lines are skipped."""
-        from perturb_data_lab.canonical.runner import _gene_map_file
+        from scorpus.canonical.runner import _gene_map_file
 
         mapping_file = tmp_path / "mapping.tsv"
         mapping_file.write_text("\ngene1\tENSG0001\n\n")

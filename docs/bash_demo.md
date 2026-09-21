@@ -10,7 +10,7 @@ for loading.
 
 - [Installation](installation.md) completed and `pip install -e .` succeeded.
 - Demo data downloaded under `./demo_data/` (see step below).
-- All commands are run from the repository root (`perturb-data-lab/`).
+- All commands are run from the repository root (`scorpus/`).
 
 ## Step 0 — Download the demo data
 
@@ -36,12 +36,12 @@ Inspection reads metadata and samples matrix candidates without loading the full
 count matrices:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli inspect \
+PYTHONPATH=src python -m scorpus.cli inspect \
   --source ./demo_data/h5ad/demo_marson_d2_rest.h5ad \
   --dataset-id marson_d2_rest \
   --output-dir ./artifacts/review
 
-PYTHONPATH=src python -m perturb_data_lab.cli inspect \
+PYTHONPATH=src python -m scorpus.cli inspect \
   --source ./demo_data/h5ad/demo_xorion_hct116_dual_guide.h5ad \
   --dataset-id xorion_hct116_dual_guide \
   --output-dir ./artifacts/review
@@ -63,7 +63,7 @@ count source, and `materialization_readiness`. Materialization requires
 Create a new federated Lance corpus with the Marson dataset:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode create \
   --source ./demo_data/h5ad/demo_marson_d2_rest.h5ad \
   --dataset-id marson_d2_rest \
@@ -85,7 +85,7 @@ This writes:
 Append the Xorion dataset into the same corpus:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode append \
   --source ./demo_data/h5ad/demo_xorion_hct116_dual_guide.h5ad \
   --dataset-id xorion_hct116_dual_guide \
@@ -113,7 +113,7 @@ Then materialize both in one call (the first row creates the corpus, the rest
 are appended automatically):
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli materialize \
+PYTHONPATH=src python -m scorpus.cli materialize \
   --mode create \
   --input-list ./artifacts/demo_inputs.csv \
   --output-corpus ./artifacts/demo_corpus \
@@ -148,7 +148,7 @@ These schemas contain the biological decisions explained in
 First run a dry-run to check schema resolution:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus ./artifacts/demo_corpus \
   --dry-run
 ```
@@ -156,7 +156,7 @@ PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
 Then run the real canonicalization:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli canonicalize \
+PYTHONPATH=src python -m scorpus.cli canonicalize \
   --corpus ./artifacts/demo_corpus
 ```
 
@@ -177,7 +177,7 @@ Key canonical fields include `perturb_label`, `condition`, `perturb_type`,
 Run the built-in corpus validator:
 
 ```bash
-PYTHONPATH=src python -m perturb_data_lab.cli corpus-validate \
+PYTHONPATH=src python -m scorpus.cli corpus-validate \
   ./artifacts/demo_corpus/corpus-index.yaml
 ```
 
@@ -193,7 +193,7 @@ You should see `PASS`. The validator checks:
 A quick smoke to confirm the corpus loads and canonical metadata is accessible:
 
 ```python
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders import load_corpus
 
 corpus = load_corpus("./artifacts/demo_corpus")
 

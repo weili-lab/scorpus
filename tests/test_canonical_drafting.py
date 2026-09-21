@@ -7,13 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from perturb_data_lab.canonical.contract import (
+from scorpus.canonical.contract import (
     CANONICAL_OBS_MUST_HAVE,
     CANONICAL_VAR_MUST_HAVE,
     CanonicalizationSchema,
     GeneMappingConfig,
 )
-from perturb_data_lab.canonical.drafting import (
+from scorpus.canonical.drafting import (
     _alias_match,
     _exact_match,
     _infer_gene_mapping,

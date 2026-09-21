@@ -143,7 +143,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="cell",
                 review_format="yaml",
                 runtime_model="CanonicalPerturbationFields",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Defines additive perturbation metadata fields and NA behavior.",
             ),
             ArtifactContract(
@@ -151,7 +151,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="cell",
                 review_format="yaml",
                 runtime_model="CanonicalContextFields",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Defines additive context metadata fields and NA behavior.",
             ),
             ArtifactContract(
@@ -159,7 +159,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="corpus",
                 review_format="yaml",
                 runtime_model="FeatureRegistry",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Tracks append-only feature vocabulary and namespace provenance.",
             ),
             ArtifactContract(
@@ -167,7 +167,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="dataset",
                 review_format="yaml",
                 runtime_model="DatasetSummaryDocument",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Stores lightweight inspector evidence before materialization.",
             ),
             ArtifactContract(
@@ -175,7 +175,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="dataset",
                 review_format="yaml",
                 runtime_model="CanonicalizationSchema",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Maps raw source fields into canonical cell and feature fields with inline null markers for unresolved entries.",
             ),
             ArtifactContract(
@@ -183,7 +183,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="release",
                 review_format="yaml",
                 runtime_model="MaterializationManifest",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Captures count source, route, release outputs, and provenance.",
             ),
             ArtifactContract(
@@ -191,7 +191,7 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="corpus",
                 review_format="yaml",
                 runtime_model="CorpusIndexDocument",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Lists immutable dataset releases and their join mode.",
             ),
             ArtifactContract(
@@ -199,20 +199,20 @@ def build_phase1_blueprint() -> Phase1Blueprint:
                 scope="global",
                 review_format="yaml",
                 runtime_model="dict",
-                owner_repo="perturb-data-lab",
+                owner_repo="scorpus",
                 purpose="Captures corpus-wide defaults, schema versions, and registry pointers.",
             ),
         ),
         projects=(
             RepoBlueprint(
-                repo_name="perturb-data-lab",
-                python_package="perturb_data_lab",
+                repo_name="scorpus",
+                python_package="scorpus",
                 purpose="Owns h5ad inspection, YAML review artifacts, materialization, loaders, and manifests.",
                 owns_paths=(
-                    "src/perturb_data_lab/inspectors",
-                    "src/perturb_data_lab/contracts.py",
-                    "src/perturb_data_lab/materializers",
-                    "src/perturb_data_lab/loaders",
+                    "src/scorpus/inspectors",
+                    "src/scorpus/contracts.py",
+                    "src/scorpus/materializers",
+                    "src/scorpus/loaders",
                     "examples/contracts",
                     "docs",
                 ),

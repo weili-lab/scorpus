@@ -703,7 +703,7 @@ def _load_incremental_pca_class() -> type[Any]:
     except ImportError as exc:  # pragma: no cover - exercised via monkeypatch test
         raise ImportError(
             "method='incremental_pca' requires optional dependency scikit-learn. "
-            "Install perturb-data-lab[pca] or add scikit-learn manually."
+            "Install scorpus[pca] or add scikit-learn manually."
         ) from exc
     return IncrementalPCA
 

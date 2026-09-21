@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "perturb-data-lab"
-version = "0.1.0"
-description = "Phase 1 blueprint and contracts for perturb-seq data onboarding."
+name = "scorpus"
+version = "0.3.0"
+description = "Sparse single-cell expression corpora with original metadata and in-memory composition."
 requires-python = ">=3.10"
 dependencies = [
     "anndata>=0.11",
@@ -13,6 +13,13 @@ dependencies = [
     "h5py>=3.10",
     "lancedb==0.30.2",
     "numpy>=2.0",
+    "pandas>=2.2",
+    "polars>=1.0",
+    "pyarrow>=18",
+    "pylance>=0.20",
+    "zarr>=3",
+    "torch>=2.2",
+    "dask[array]>=2024",
     "PyYAML>=6.0",
     "scipy>=1.14",
 ]
@@ -32,6 +39,11 @@ demo = [
     "requests>=2.31",
     "tqdm>=4.66",
 ]
+
+[project.urls]
+Homepage = "https://github.com/weili-lab/scorpus"
+Documentation = "https://weili-lab.github.io/scorpus/"
+Repository = "https://github.com/weili-lab/scorpus"
 
 [tool.setuptools.packages.find]
 where = ["src"]

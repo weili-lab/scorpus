@@ -1,6 +1,6 @@
-site_name: perturb-data-lab
-site_description: A demo-first walkthrough for perturb-seq data preprocessing and loading
-repo_url: https://github.com/weili-lab/perturb-data-lab
+site_name: scorpus
+site_description: Sparse single-cell corpora that are cheap to random-access, easy to compose, and ready for AnnData
+repo_url: https://github.com/weili-lab/scorpus
 edit_uri: edit/docs/github-pages-demo/docs/
 
 theme:
@@ -16,21 +16,22 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Get Started:
+    - Quickstart: quickstart.md
     - Installation: installation.md
-  - Demo:
-    - Bash Materialization: bash_demo.md
-    - Jupyter Materialization: jupyter_demo.md
-    - Notebook Walkthrough: demo_walkthrough.ipynb
-  - Core Topics:
-    - Canonicalization: demo_canonicalization.md
-    - pertTF Loading: perttf_loader.md
+  - Guides:
+    - Conversion & Composition: composable_corpora.md
+    - AnnData Handoff: anndata_scanpy_handoff.md
     - Scanpy & RAPIDS: scanpy_rapids.md
-  - Reference:
+    - Backend Notes: backend_note.md
+    - pertTF Integration: perttf_loader.md
+  - Curated Corpora (advanced):
+    - Overview: demo_canonicalization.md
+    - Bash Walkthrough: bash_demo.md
+    - Jupyter Walkthrough: jupyter_demo.md
+    - Rendered Notebook: demo_walkthrough.ipynb
     - Inspection & Materialization: inspect_materialize.md
     - Canonicalization Handbook: canonicalization_handbook.md
-    - Backend Notes: backend_note.md
-    - AnnData Handoff API: anndata_scanpy_handoff.md
 
 plugins:
   - search

@@ -25,8 +25,8 @@ import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix
 
-from perturb_data_lab.inspectors.models import CountSourceDecision
-from perturb_data_lab.inspectors.workflow import (
+from scorpus.inspectors.models import CountSourceDecision
+from scorpus.inspectors.workflow import (
     _attempt_reverse_normalization,
     _audit_matrix_candidate,
     _choose_count_source,
@@ -422,7 +422,7 @@ def test_inspect_target_recovery_flag_when_raw_counts_available(tmp_path: Path):
         output_root=Path(config_path).parent / "outputs",
     )
 
-    from perturb_data_lab.inspectors.models import DatasetSummaryDocument
+    from scorpus.inspectors.models import DatasetSummaryDocument
 
     summary_path = (
         Path(config_path).parent / "outputs" / "recovery_check" / "dataset-summary.yaml"
@@ -454,7 +454,7 @@ def test_inspect_target_binned_only_source_can_still_recover(tmp_path: Path):
         output_root=tmp_path / "outputs",
     )
 
-    from perturb_data_lab.inspectors.models import DatasetSummaryDocument
+    from scorpus.inspectors.models import DatasetSummaryDocument
 
     summary_path = (
         tmp_path / "outputs" / "binned_only_recovery_check" / "dataset-summary.yaml"

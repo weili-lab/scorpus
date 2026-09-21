@@ -1,4 +1,4 @@
-"""Enable: python -m perturb_data_lab.cli [command]"""
+"""Enable: python -m scorpus.cli [command]"""
 
 from .cli import main
 

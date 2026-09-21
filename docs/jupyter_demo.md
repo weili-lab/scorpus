@@ -10,7 +10,7 @@ An executed version of this walkthrough is available as a rendered notebook:
 ## Prerequisites
 
 - [Installation](installation.md) completed and `pip install -e ".[demo]"` succeeded.
-- A working Python environment with `perturb_data_lab`, `anndata`, and `scanpy` importable.
+- A working Python environment with `scorpus`, `anndata`, and `scanpy` importable.
 - Demo data downloaded (see the download cell below).
 
 ---
@@ -24,12 +24,12 @@ import requests
 
 repo_root = next(
     p for p in (Path.cwd(), *Path.cwd().parents)
-    if (p / "src" / "perturb_data_lab").exists()
+    if (p / "src" / "scorpus").exists()
 )
 sys.path.insert(0, str(repo_root / "src"))
 
 demo_root = repo_root / "demo_data"
-base_url = "https://huggingface.co/datasets/weililab/perturb-data-lab-demo/resolve/main"
+base_url = "https://huggingface.co/datasets/weililab/scorpus-demo/resolve/main"
 files = [
     "h5ad/demo_marson_d2_rest.h5ad",
     "h5ad/demo_xorion_hct116_dual_guide.h5ad",
@@ -64,8 +64,8 @@ file is ready for materialization.
 
 ```python
 from pathlib import Path
-from perturb_data_lab.inspectors import inspect_target
-from perturb_data_lab.inspectors.models import DatasetSummaryDocument, InspectionTarget
+from scorpus.inspectors import inspect_target
+from scorpus.inspectors.models import DatasetSummaryDocument, InspectionTarget
 
 review_dir = repo_root / "artifacts" / "review"
 review_dir.mkdir(parents=True, exist_ok=True)
@@ -127,9 +127,9 @@ This builds a **federated** Lance corpus: each dataset gets its own isolated
 are materialized in one Python loop using the materializer API.
 
 ```python
-from perturb_data_lab.materializers import DatasetMaterializer
-from perturb_data_lab.materializers.models import OutputRoots, CorpusIndexDocument
-from perturb_data_lab.materializers.paths import resolve_corpus_paths
+from scorpus.materializers import DatasetMaterializer
+from scorpus.materializers.models import OutputRoots, CorpusIndexDocument
+from scorpus.materializers.paths import resolve_corpus_paths
 
 corpus_root = repo_root / "artifacts" / "demo_corpus"
 corpus_root.mkdir(parents=True, exist_ok=True)
@@ -232,8 +232,8 @@ For a deeper explanation, see [Canonicalization](demo_canonicalization.md).
 Apply the reviewed schemas to produce canonical obs/var metadata:
 
 ```python
-from perturb_data_lab.canonical import run_canonicalization
-from perturb_data_lab.materializers.models import MaterializationManifest
+from scorpus.canonical import run_canonicalization
+from scorpus.materializers.models import MaterializationManifest
 
 index_doc = CorpusIndexDocument.from_yaml_file(corpus_root / "corpus-index.yaml")
 for ds in index_doc.datasets:
@@ -256,8 +256,8 @@ for ds in index_doc.datasets:
 ## Validate and load the corpus
 
 ```python
-from perturb_data_lab.loaders.validation import validate_corpus_structure
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders.validation import validate_corpus_structure
+from scorpus.loaders import load_corpus
 
 report = validate_corpus_structure(corpus_root)
 print(report["status"], report["topology"], report["total_rows"])
@@ -314,63 +314,23 @@ print(f"Sample conditions: {sorted(unique)[:10]}...")
 
 ---
 
-## PertTF loader preview
+## pertTF paired loading
 
-Produce one paired batch to confirm the loader works end-to-end:
+The paired loader, perturbation sampler, and model-specific vocabulary adapter
+are no longer part of `scorpus`. They live in pertTF as
+`perttf.model.corpus_adapter`, and `perttf.model.corpus_data.produce_corpus_datasets`
+builds the full training/validation dictionary from a loaded corpus.
+
+For a model-independent sparse batch loader, `scorpus` provides:
 
 ```python
-from perturb_data_lab.loaders import PertTFAdapterConfig, PertTFPairedBatchLoader
+from scorpus.loaders import build_loader
 
-config = PertTFAdapterConfig(
-    label_fields={
-        "perturb_label": "perturbation",
-        "cell_context": "celltype",
-        "batch_id": "batch",
-        "dataset_id": "dataset",
-    },
-    perturbation_label="perturbation",
-    control_labels=("ctrl",),
-    pairing_group_labels=("dataset", "celltype"),
-    mask_ratio=0.0,
-)
-
-loader = PertTFPairedBatchLoader(
-    corpus,
-    batch_size=4,
-    seq_len=64,
-    config=config,
-    sampling_mode="hvg",
-    hvg_top_k=2000,
-    num_workers=0,
-)
-
-batch = next(iter(loader))
-print("Batch keys:", sorted(batch.keys()))
-print(f"  gene_ids shape: {batch['gene_ids'].shape}")
-print(f"  values shape: {batch['values'].shape}")
-print(f"  target_values shape: {batch['target_values'].shape}")
-print(f"  target_values_next shape: {batch['target_values_next'].shape}")
-print(f"  index: {batch['index'].tolist()}")
-print(f"  next_index: {batch['next_index'].tolist()}")
-
-# Decode perturbation labels
-src_labels = corpus.take_metadata(
-    batch["index"].tolist(),
-    columns=["perturb_label", "dataset_id"],
-)
-tgt_labels = corpus.take_metadata(
-    batch["next_index"].tolist(),
-    columns=["perturb_label", "dataset_id"],
-)
-print("\nSource pairs:")
-for i in range(len(batch["index"])):
-    print(
-        f"  {src_labels['dataset_id'][i]} {src_labels['perturb_label'][i]} "
-        f"-> {tgt_labels['dataset_id'][i]} {tgt_labels['perturb_label'][i]}"
-    )
+batch = next(iter(build_loader(corpus, seq_len=64, batch_size=4)))
+print(sorted(batch.keys()))
 ```
 
-For more details on loader configuration, see [pertTF Loading](perttf_loader.md).
+See [pertTF integration](perttf_loader.md).
 
 ---
 
@@ -431,5 +391,5 @@ The demo data under `./demo_data/` does not need to be re-downloaded.
 
 - **[Bash Demo](bash_demo.md)** — the CLI equivalent for scripting
 - **[Canonicalization](demo_canonicalization.md)** — understand the two schema decisions
-- **[pertTF Loading](perttf_loader.md)** — full loader configuration and batch fields
+- **[pertTF integration](perttf_loader.md)** — where the paired loader now lives
 - **[Scanpy & RAPIDS](scanpy_rapids.md)** — Dask-backed AnnData, CPU Scanpy, GPU RAPIDS

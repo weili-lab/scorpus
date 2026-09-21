@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from perturb_data_lab.canonical.transforms import (
+from scorpus.canonical.transforms import (
     TRANSFORM_CATALOG,
     build_transform,
     coalesce_values,
@@ -32,14 +32,14 @@ class TestNewTransforms:
         assert coalesce_values(("", "NA", "NTC")) == "NTC"
 
     def test_coalesce_values_all_null_returns_na(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert coalesce_values(("", "NA", "n/a")) == MISSING_VALUE_LITERAL
 
     def test_coalesce_values_single_value(self):
         assert coalesce_values(("value",)) == "value"
 
     def test_coalesce_values_empty_tuple(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert coalesce_values(()) == MISSING_VALUE_LITERAL
 
     def test_split_on_delimiter_basic(self):
@@ -47,7 +47,7 @@ class TestNewTransforms:
         assert split_on_delimiter("TP53+MDM2", delimiter="+", part=1) == "MDM2"
 
     def test_split_on_delimiter_out_of_range(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert split_on_delimiter("TP53+MDM2", delimiter="+", part=5) == MISSING_VALUE_LITERAL
 
     def test_split_on_delimiter_comma(self):
@@ -61,7 +61,7 @@ class TestNewTransforms:
         assert split_on_delimiter("TP53 , MDM2", delimiter=",", part=1) == "MDM2"
 
     def test_split_on_delimiter_empty_part(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert split_on_delimiter("a,,c", delimiter=",", part=1) == MISSING_VALUE_LITERAL
 
     def test_map_values_basic(self):
@@ -93,7 +93,7 @@ class TestNewTransforms:
         assert dose_parse("3.14") == "3.14"
 
     def test_dose_parse_unknown(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert dose_parse("unknown") == MISSING_VALUE_LITERAL
         assert dose_parse("") == MISSING_VALUE_LITERAL
 
@@ -109,7 +109,7 @@ class TestNewTransforms:
         assert dose_unit("10mg/kg") == "mg/kg"
 
     def test_dose_unit_unknown(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert dose_unit("unknown") == MISSING_VALUE_LITERAL
 
     def test_timepoint_parse_hours(self):
@@ -130,7 +130,7 @@ class TestNewTransforms:
         assert timepoint_parse("72") == "72"
 
     def test_timepoint_parse_unknown(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert timepoint_parse("unknown") == MISSING_VALUE_LITERAL
         assert timepoint_parse("") == MISSING_VALUE_LITERAL
 
@@ -147,7 +147,7 @@ class TestNewTransforms:
         assert timepoint_unit("15 min") == "m"
 
     def test_timepoint_unit_unknown(self):
-        from perturb_data_lab.contracts import MISSING_VALUE_LITERAL
+        from scorpus.contracts import MISSING_VALUE_LITERAL
         assert timepoint_unit("unknown") == MISSING_VALUE_LITERAL
 
 

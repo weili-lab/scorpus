@@ -1,4 +1,4 @@
-"""Shared low-memory per-dataset streaming helpers for ``perturb_data_lab.pp``."""
+"""Shared low-memory per-dataset streaming helpers for ``scorpus.pp``."""
 
 from __future__ import annotations
 

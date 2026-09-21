@@ -9,7 +9,7 @@ from pathlib import Path
 import dask.array as da
 import scanpy as sc
 
-from perturb_data_lab.loaders import load_corpus
+from scorpus.loaders import load_corpus
 
 
 DATASET_IDS = ["marson_d2_rest", "xorion_hct116_dual_guide"]

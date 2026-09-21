@@ -1,13 +1,13 @@
 # Installation
 
-This page gets you from zero to a working `perturb-data-lab` environment ready
+This page gets you from zero to a working `scorpus` environment ready
 to run the [Bash](bash_demo.md) or [Jupyter](jupyter_demo.md) demo.
 
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/weili-lab/perturb-data-lab.git
-cd perturb-data-lab
+git clone https://github.com/weili-lab/scorpus.git
+cd scorpus
 ```
 
 Stay on the default `main` branch. All demo scripts, notebooks, and example
@@ -17,7 +17,7 @@ demo.)
 
 ## 2. Set up a Python environment
 
-`perturb-data-lab` requires **Python ≥ 3.10**. We recommend using conda or mamba
+`scorpus` requires **Python ≥ 3.10**. We recommend using conda or mamba
 to create an isolated environment:
 
 ```bash
@@ -43,17 +43,17 @@ pip install -e .
 Run a quick import check to confirm everything is wired correctly:
 
 ```python
-from perturb_data_lab.loaders import load_corpus
-from perturb_data_lab.materializers.paths import resolve_corpus_paths
+from scorpus.loaders import load_corpus
+from scorpus.materializers.paths import resolve_corpus_paths
 
-print("perturb-data-lab is ready.")
+print("scorpus is ready.")
 ```
 
 ## 5. Download the demo data
 
 The demo uses two small `.h5ad` subsets hosted on HuggingFace:
 
-- **Repository**: [weililab/perturb-data-lab-demo](https://huggingface.co/datasets/weililab/perturb-data-lab-demo)
+- **Repository**: [weililab/scorpus-demo](https://huggingface.co/datasets/weililab/scorpus-demo)
 - **Datasets**: Marson D2 Rest (CRISPRi, 2.7K cells) and Xorion HCT116 (dual-guide, 2.7K cells)
 
 ### Option A — using the bundled download script (recommended)
@@ -74,7 +74,7 @@ integrity.
 
 ```bash
 pip install huggingface_hub
-huggingface-cli download weililab/perturb-data-lab-demo \
+huggingface-cli download weililab/scorpus-demo \
   --local-dir ./demo_data \
   --repo-type dataset
 ```
@@ -84,9 +84,9 @@ huggingface-cli download weililab/perturb-data-lab-demo \
 ```bash
 mkdir -p ./demo_data/h5ad
 wget -O ./demo_data/h5ad/demo_marson_d2_rest.h5ad \
-  https://huggingface.co/datasets/weililab/perturb-data-lab-demo/resolve/main/h5ad/demo_marson_d2_rest.h5ad
+  https://huggingface.co/datasets/weililab/scorpus-demo/resolve/main/h5ad/demo_marson_d2_rest.h5ad
 wget -O ./demo_data/h5ad/demo_xorion_hct116_dual_guide.h5ad \
-  https://huggingface.co/datasets/weililab/perturb-data-lab-demo/resolve/main/h5ad/demo_xorion_hct116_dual_guide.h5ad
+  https://huggingface.co/datasets/weililab/scorpus-demo/resolve/main/h5ad/demo_xorion_hct116_dual_guide.h5ad
 ```
 
 ## 6. Install optional dependencies
@@ -112,12 +112,14 @@ After installation, the following should all succeed:
 import anndata
 import dask
 import scanpy
-import perturb_data_lab
-from perturb_data_lab.loaders import load_corpus, PertTFAdapterConfig, PertTFPairedBatchLoader
+import scorpus
+from scorpus import from_h5ad, load_corpus, concat
+from scorpus.loaders import build_loader
 ```
 
 ## Next steps
 
+- **[Quickstart](quickstart.md)** — convert an `.h5ad` and load it
 - **[Bash Demo](bash_demo.md)** — copy-paste CLI walkthrough
 - **[Jupyter Demo](jupyter_demo.md)** — interactive Python walkthrough
 - **[Rendered Notebook](demo_walkthrough.ipynb)** — the executed walkthrough with cell outputs

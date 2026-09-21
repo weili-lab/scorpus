@@ -12,7 +12,7 @@ import torch
 import yaml
 from torch.utils.data import DataLoader
 
-from perturb_data_lab.loaders import (
+from scorpus.loaders import (
     CorpusRandomBatchSampler,
     ContextBatchSampler,
     ExpressionBatchDataset,
@@ -20,9 +20,9 @@ from perturb_data_lab.loaders import (
     build_loader,
     collate_expression_batch,
 )
-from perturb_data_lab.loaders.corpus_loader import Corpus, load_corpus
-from perturb_data_lab.loaders.zarr_reading import open_csr_arrays
-from perturb_data_lab.loaders.validation import validate_corpus_structure
+from scorpus.loaders.corpus_loader import Corpus, load_corpus
+from scorpus.loaders.zarr_reading import open_csr_arrays
+from scorpus.loaders.validation import validate_corpus_structure
 
 
 N_GENES = 8
@@ -256,6 +256,58 @@ def test_to_anndata_exports_whole_dataset_as_csr(tmp_path: Path) -> None:
     assert adata.X.dtype == np.float32
     assert set(adata.obs["dataset_id"]) == {"mock_00"}
     assert adata.var["canonical_gene_id"].to_list() == [f"GENE{i:05d}" for i in range(N_GENES)]
+    assert adata.var["hvg_rank"].to_list() == [0] * N_GENES
+    assert not adata.var["highly_variable"].any()
+
+
+def test_to_anndata_exports_selected_global_rows_with_hvg_metadata(tmp_path: Path) -> None:
+    _build_aggregate_lance_corpus(tmp_path)
+    pl.DataFrame(
+        {
+            "origin_index": np.arange(N_GENES, dtype=np.int64),
+            "hvg_rank": np.asarray([4, 1, 7, 2, 8, 3, 6, 5], dtype=np.int32),
+            "selected_at_default_n_hvg": np.asarray(
+                [False, True, False, True, False, True, False, False],
+                dtype=bool,
+            ),
+        }
+    ).write_parquet(tmp_path / "meta" / "mock_00" / "hvg.parquet")
+    corpus = load_corpus(tmp_path)
+
+    selected = corpus.to_anndata(global_row_indices=[3, 1, 3])
+    whole = corpus.to_anndata(dataset_id="mock_00")
+
+    assert selected.shape == (3, N_GENES)
+    assert selected.obs["global_row_index"].to_list() == [3, 1, 3]
+    assert selected.obs["dataset_id"].to_list() == ["mock_00"] * 3
+    assert (selected.X != whole.X[[3, 1, 3]]).nnz == 0
+    assert selected.var["gene_id"].to_list() == [f"ENSG{i:05d}" for i in range(N_GENES)]
+    assert selected.var["hvg_rank"].to_list() == [4, 1, 7, 2, 8, 3, 6, 5]
+    assert selected.var["highly_variable"].to_list() == [False, True, False, True, False, True, False, False]
+
+
+def test_to_anndata_selected_rows_rejects_multiple_datasets(tmp_path: Path) -> None:
+    _build_aggregate_lance_corpus(tmp_path)
+    corpus = load_corpus(tmp_path)
+
+    with pytest.raises(ValueError, match="same dataset"):
+        corpus.to_anndata(global_row_indices=[0, 4])
+
+
+def test_to_anndata_selected_rows_rejects_dataset_mismatch(tmp_path: Path) -> None:
+    _build_aggregate_lance_corpus(tmp_path)
+    corpus = load_corpus(tmp_path)
+
+    with pytest.raises(ValueError, match="not requested dataset"):
+        corpus.to_anndata(dataset_id="mock_01", global_row_indices=[0, 1])
+
+
+def test_to_anndata_selected_rows_rejects_empty_indices(tmp_path: Path) -> None:
+    _build_aggregate_lance_corpus(tmp_path)
+    corpus = load_corpus(tmp_path)
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        corpus.to_anndata(global_row_indices=[])
 
 
 def test_to_anndata_multi_dataset_requires_matching_feature_axis(tmp_path: Path) -> None:
