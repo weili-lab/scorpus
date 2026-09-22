@@ -1,0 +1,1555 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Sparse single-cell corpora that are cheap to random-access, easy to compose, and ready for AnnData">
+      
+      
+      
+      
+        <link rel="prev" href="../demo_walkthrough/">
+      
+      
+        <link rel="next" href="../canonicalization_handbook/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/scorpus_favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Inspection & Materialization - scorpus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#inspection-and-materialization" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="scorpus" class="md-header__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scorpus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Inspection & Materialization
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../composable_corpora/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../demo_canonicalization/" class="md-tabs__link">
+          
+  
+  
+  Curated Corpora (advanced)
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="scorpus" class="md-nav__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    scorpus
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../composable_corpora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion & Composition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../anndata_scanpy_handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnnData Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scanpy_rapids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanpy & RAPIDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend_note/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perttf_loader/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pertTF Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curated Corpora (advanced)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Curated Corpora (advanced)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_canonicalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bash_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bash Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jupyter Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scorpus Demo Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspection & Materialization
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspection & Materialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-cli-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct CLI Inspection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batch-cli-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch CLI Inspection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewing-dataset-summaryyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewing dataset-summary.yaml
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-a-new-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create a New Corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#append-to-an-existing-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Append to an Existing Corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#materialize-multiple-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materialize Multiple Datasets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dry-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry Runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-inspection-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Inspection API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-materialization-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Materialization API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Layouts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-after-materialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation After Materialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#safety-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Safety Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../canonicalization_handbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canonicalization Handbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#direct-cli-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Direct CLI Inspection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#batch-cli-inspection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch CLI Inspection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reviewing-dataset-summaryyaml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reviewing dataset-summary.yaml
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#create-a-new-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Create a New Corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#append-to-an-existing-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Append to an Existing Corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#materialize-multiple-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materialize Multiple Datasets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dry-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dry Runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-inspection-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Inspection API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#python-materialization-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Python Materialization API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#output-layouts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output Layouts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validation-after-materialization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validation After Materialization
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#safety-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Safety Notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="inspection-and-materialization">Inspection and Materialization<a class="headerlink" href="#inspection-and-materialization" title="Permanent link">&para;</a></h1>
+<p>This document shows how to turn raw <code>.h5ad</code> files into a materialized corpus.
+Canonical schema review and canonicalization are covered separately in
+<code>canonicalization_handbook.md</code>.</p>
+<h2 id="workflow">Workflow<a class="headerlink" href="#workflow" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>inspect raw h5ad
+  -&gt; review dataset-summary.yaml
+  -&gt; materialize sparse counts + raw sidecars
+  -&gt; validate corpus registration
+</code></pre></div>
+<p>Inspection is metadata-first and samples matrix candidates. Materialization uses
+the inspection decision to stream the selected count matrix into a corpus.</p>
+<h2 id="direct-cli-inspection">Direct CLI Inspection<a class="headerlink" href="#direct-cli-inspection" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>inspect<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--source<span class="w"> </span>/path/to/dataset.h5ad<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-id<span class="w"> </span>my_dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-dir<span class="w"> </span>./artifacts/review
+</code></pre></div>
+<p>This writes:</p>
+<div class="highlight"><pre><span></span><code>./artifacts/review/my_dataset/dataset-summary.yaml
+</code></pre></div>
+<p>The summary contains:</p>
+<ul>
+<li>source identity and dimensions</li>
+<li>obs and var field profiles</li>
+<li><code>.X</code>, <code>.raw.X</code>, and layer count-source candidates</li>
+<li>selected count source</li>
+<li>recovery decision, if needed</li>
+<li><code>materialization_readiness</code></li>
+<li>likely control-label candidates for later canonical schema review</li>
+</ul>
+<p>Materialization only proceeds when <code>materialization_readiness: pass</code>.</p>
+<h2 id="batch-cli-inspection">Batch CLI Inspection<a class="headerlink" href="#batch-cli-inspection" title="Permanent link">&para;</a></h2>
+<p>Batch inspection reads a YAML config:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">output_root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./artifacts/review</span>
+<span class="nt">datasets</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">dataset_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_a</span>
+<span class="w">    </span><span class="nt">source_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/dataset_a.h5ad</span>
+<span class="w">    </span><span class="nt">source_release</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_a</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">dataset_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_b</span>
+<span class="w">    </span><span class="nt">source_path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path/to/dataset_b.h5ad</span>
+<span class="w">    </span><span class="nt">source_release</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_b</span>
+</code></pre></div>
+<p>Run:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>inspect<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--config<span class="w"> </span>./artifacts/inspection-batch.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--workers<span class="w"> </span><span class="m">1</span>
+</code></pre></div>
+<p>Outputs:</p>
+<div class="highlight"><pre><span></span><code>./artifacts/review/inspection-manifest.yaml
+./artifacts/review/dataset_a/dataset-summary.yaml
+./artifacts/review/dataset_b/dataset-summary.yaml
+</code></pre></div>
+<p>For large <code>.h5ad</code> files, run this on Slurm CPU in the project environment.</p>
+<h2 id="reviewing-dataset-summaryyaml">Reviewing <code>dataset-summary.yaml</code><a class="headerlink" href="#reviewing-dataset-summaryyaml" title="Permanent link">&para;</a></h2>
+<p>Before materialization, check these fields:</p>
+<ul>
+<li><code>materialization_readiness</code>: must be <code>pass</code></li>
+<li><code>count_source_decision.selected_candidate</code>: <code>.X</code>, <code>.raw.X</code>, or <code>.layers[name]</code></li>
+<li><code>count_source_decision.uses_recovery</code>: whether reverse-normalization is expected</li>
+<li><code>count_source_candidates</code>: sampled integer and non-negativity evidence</li>
+<li><code>obs_fields</code> and <code>var_fields</code>: field names and example values for later schema review</li>
+<li><code>control_label_candidates</code>: possible control labels for canonicalization</li>
+</ul>
+<p>If readiness is <code>needs-review</code> or <code>fail</code>, do not materialize until the source or
+inspection decision is resolved.</p>
+<h2 id="create-a-new-corpus">Create a New Corpus<a class="headerlink" href="#create-a-new-corpus" title="Permanent link">&para;</a></h2>
+<p>Create a new aggregate Lance corpus from one dataset:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>materialize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mode<span class="w"> </span>create<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--source<span class="w"> </span>/path/to/dataset.h5ad<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-id<span class="w"> </span>my_dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--inspection-summary<span class="w"> </span>./artifacts/review/my_dataset/dataset-summary.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-corpus<span class="w"> </span>./artifacts/corpus<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--backend<span class="w"> </span>lance<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--topology<span class="w"> </span>aggregate<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--corpus-id<span class="w"> </span>my_corpus
+</code></pre></div>
+<p>For <code>--mode create</code>, <code>--backend</code> is required. If <code>--topology</code> is omitted, the CLI
+defaults to federated, so pass <code>--topology aggregate</code> when creating the default
+recommended aggregate Lance corpus.</p>
+<h2 id="append-to-an-existing-corpus">Append to an Existing Corpus<a class="headerlink" href="#append-to-an-existing-corpus" title="Permanent link">&para;</a></h2>
+<p>Append later datasets into the same corpus:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>materialize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mode<span class="w"> </span>append<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--source<span class="w"> </span>/path/to/later_dataset.h5ad<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-id<span class="w"> </span>later_dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--inspection-summary<span class="w"> </span>./artifacts/review/later_dataset/dataset-summary.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-corpus<span class="w"> </span>./artifacts/corpus
+</code></pre></div>
+<p>For append, the existing <code>corpus-index.yaml</code> supplies backend and topology. If
+<code>--backend</code> or <code>--topology</code> are passed, they must match the existing corpus.</p>
+<p>Dataset IDs are immutable within one corpus. The CLI refuses to append a dataset
+ID that already exists in the corpus index.</p>
+<h2 id="materialize-multiple-datasets">Materialize Multiple Datasets<a class="headerlink" href="#materialize-multiple-datasets" title="Permanent link">&para;</a></h2>
+<p>Use a CSV input list:</p>
+<div class="highlight"><pre><span></span><code>source,dataset_id,inspection_summary
+/path/to/dataset_a.h5ad,dataset_a,./artifacts/review/dataset_a/dataset-summary.yaml
+/path/to/dataset_b.h5ad,dataset_b,./artifacts/review/dataset_b/dataset-summary.yaml
+</code></pre></div>
+<p>Then run:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>materialize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mode<span class="w"> </span>create<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--input-list<span class="w"> </span>./artifacts/materialize-inputs.csv<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-corpus<span class="w"> </span>./artifacts/corpus<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--backend<span class="w"> </span>lance<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--topology<span class="w"> </span>aggregate
+</code></pre></div>
+<p>The first dataset creates the corpus and later rows are appended in CSV order.</p>
+<p><code>--input-dir</code> can also scan a directory of <code>.h5ad</code> files, but it expects summary
+files named <code>{stem}-summary.yaml</code> in the input directory or in
+<code>--inspection-summary-dir</code>. Use <code>--input-list</code> when summaries are stored in the
+normal inspection output layout.</p>
+<h2 id="dry-runs">Dry Runs<a class="headerlink" href="#dry-runs" title="Permanent link">&para;</a></h2>
+<p>Check inputs and print the planned materialization without writing data:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>materialize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--mode<span class="w"> </span>create<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--source<span class="w"> </span>/path/to/dataset.h5ad<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-id<span class="w"> </span>my_dataset<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--inspection-summary<span class="w"> </span>./artifacts/review/my_dataset/dataset-summary.yaml<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--output-corpus<span class="w"> </span>./artifacts/corpus<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--backend<span class="w"> </span>lance<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--topology<span class="w"> </span>aggregate<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dry-run
+</code></pre></div>
+<h2 id="python-inspection-api">Python Inspection API<a class="headerlink" href="#python-inspection-api" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.inspectors</span><span class="w"> </span><span class="kn">import</span> <span class="n">inspect_target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.inspectors.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">InspectionTarget</span>
+
+<span class="n">artifacts</span> <span class="o">=</span> <span class="n">inspect_target</span><span class="p">(</span>
+    <span class="n">InspectionTarget</span><span class="p">(</span>
+        <span class="n">dataset_id</span><span class="o">=</span><span class="s2">"my_dataset"</span><span class="p">,</span>
+        <span class="n">source_path</span><span class="o">=</span><span class="s2">"/path/to/dataset.h5ad"</span><span class="p">,</span>
+        <span class="n">source_release</span><span class="o">=</span><span class="s2">"my_dataset"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Path</span><span class="p">(</span><span class="s2">"./artifacts/review"</span><span class="p">),</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">artifacts</span><span class="o">.</span><span class="n">inspection_summary</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">artifacts</span><span class="o">.</span><span class="n">materialization_readiness</span><span class="p">)</span>
+</code></pre></div>
+<p>For batch inspection in Python, use <code>InspectionBatchConfig</code> and <code>run_batch(...)</code>.</p>
+<h2 id="python-materialization-api">Python Materialization API<a class="headerlink" href="#python-materialization-api" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatasetMaterializer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">OutputRoots</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_corpus_paths</span>
+
+<span class="n">corpus_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"./artifacts/corpus"</span><span class="p">)</span>
+<span class="n">dataset_id</span> <span class="o">=</span> <span class="s2">"my_dataset"</span>
+<span class="n">paths</span> <span class="o">=</span> <span class="n">resolve_corpus_paths</span><span class="p">(</span>
+    <span class="n">topology</span><span class="o">=</span><span class="s2">"aggregate"</span><span class="p">,</span>
+    <span class="n">corpus_root</span><span class="o">=</span><span class="n">corpus_root</span><span class="p">,</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="n">dataset_id</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">materializer</span> <span class="o">=</span> <span class="n">DatasetMaterializer</span><span class="p">(</span>
+    <span class="n">source_path</span><span class="o">=</span><span class="s2">"/path/to/dataset.h5ad"</span><span class="p">,</span>
+    <span class="n">inspection_summary_path</span><span class="o">=</span><span class="s2">"./artifacts/review/my_dataset/dataset-summary.yaml"</span><span class="p">,</span>
+    <span class="n">output_roots</span><span class="o">=</span><span class="n">OutputRoots</span><span class="p">(</span>
+        <span class="n">metadata_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">meta_root</span><span class="p">),</span>
+        <span class="n">matrix_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">matrix_root</span><span class="p">),</span>
+    <span class="p">),</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="n">dataset_id</span><span class="p">,</span>
+    <span class="n">backend</span><span class="o">=</span><span class="s2">"lance"</span><span class="p">,</span>
+    <span class="n">topology</span><span class="o">=</span><span class="s2">"aggregate"</span><span class="p">,</span>
+    <span class="n">corpus_index_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="s2">"corpus-index.yaml"</span><span class="p">),</span>
+    <span class="n">corpus_id</span><span class="o">=</span><span class="s2">"my_corpus"</span><span class="p">,</span>
+    <span class="n">register</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s2">"create"</span><span class="p">,</span>
+    <span class="n">dataset_index</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">global_row_start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">manifest</span> <span class="o">=</span> <span class="n">materializer</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">manifest</span><span class="o">.</span><span class="n">cell_count</span><span class="p">,</span> <span class="n">manifest</span><span class="o">.</span><span class="n">feature_count</span><span class="p">)</span>
+</code></pre></div>
+<p>Most users should use the CLI because it handles append bookkeeping,
+<code>dataset_index</code>, <code>global_row_start</code>, and aggregate writer state across multiple
+datasets.</p>
+<h2 id="output-layouts">Output Layouts<a class="headerlink" href="#output-layouts" title="Permanent link">&para;</a></h2>
+<p>Aggregate topology:</p>
+<div class="highlight"><pre><span></span><code>corpus/
+├── corpus-index.yaml
+├── global-metadata.yaml
+├── matrix/
+└── meta/
+    └── my_dataset/
+        ├── dataset-summary.yaml
+        ├── materialization-manifest.yaml
+        ├── raw-obs.parquet
+        ├── raw-var.parquet
+        ├── size-factor.parquet
+        └── hvg.parquet
+</code></pre></div>
+<p>Federated topology:</p>
+<div class="highlight"><pre><span></span><code>corpus/
+├── corpus-index.yaml
+├── global-metadata.yaml
+└── my_dataset/
+    ├── matrix/
+    └── meta/
+        ├── dataset-summary.yaml
+        ├── materialization-manifest.yaml
+        ├── raw-obs.parquet
+        ├── raw-var.parquet
+        ├── size-factor.parquet
+        └── hvg.parquet
+</code></pre></div>
+<h2 id="validation-after-materialization">Validation After Materialization<a class="headerlink" href="#validation-after-materialization" title="Permanent link">&para;</a></h2>
+<p>Run corpus validation:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>corpus-validate<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>./artifacts/corpus/corpus-index.yaml
+</code></pre></div>
+<p>Manual checks:</p>
+<ul>
+<li><code>corpus-index.yaml</code> lists the expected dataset IDs in the expected order</li>
+<li>each dataset has <code>materialization-manifest.yaml</code></li>
+<li>each manifest has <code>integer_verified: true</code></li>
+<li>each manifest records the expected <code>backend</code> and <code>topology</code></li>
+<li><code>raw-obs.parquet</code>, <code>raw-var.parquet</code>, <code>size-factor.parquet</code>, and <code>hvg.parquet</code> exist</li>
+</ul>
+<p>After this, continue with <code>canonicalization_handbook.md</code>.</p>
+<h2 id="safety-notes">Safety Notes<a class="headerlink" href="#safety-notes" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Treat source <code>.h5ad</code> files as read-only.</li>
+<li>Do not write outputs into protected symlink roots such as <code>data/</code>, <code>pertTF/</code>, or <code>perturb/</code>.</li>
+<li>Materialization does not apply <code>obs_filter</code>. Pre-filter the source <code>.h5ad</code> if only a subset of cells should enter the corpus.</li>
+<li>Keep dataset IDs stable; they become part of corpus paths and runtime metadata.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

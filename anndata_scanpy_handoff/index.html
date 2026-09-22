@@ -1,0 +1,1395 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Sparse single-cell corpora that are cheap to random-access, easy to compose, and ready for AnnData">
+      
+      
+      
+      
+        <link rel="prev" href="../composable_corpora/">
+      
+      
+        <link rel="next" href="../scanpy_rapids/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/scorpus_favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>AnnData Handoff - scorpus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#anndata-scanpy-and-rapids-handoff" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="scorpus" class="md-header__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scorpus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              AnnData Handoff
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../composable_corpora/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../demo_canonicalization/" class="md-tabs__link">
+          
+  
+  
+  Curated Corpora (advanced)
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="scorpus" class="md-nav__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    scorpus
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../composable_corpora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion & Composition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnnData Handoff
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnnData Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#public-handoff-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public handoff API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-axis-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature-axis rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eager-anndata-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eager AnnData handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lazy-anndata-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lazy AnnData handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scanpy-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanpy example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rapids-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RAPIDS example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-results-back-to-the-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding results back to the corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#corpus-native-pp-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corpus-native pp helpers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scanpy_rapids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanpy & RAPIDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend_note/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perttf_loader/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pertTF Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curated Corpora (advanced)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Curated Corpora (advanced)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_canonicalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bash_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bash Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jupyter Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scorpus Demo Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspect_materialize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspection & Materialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../canonicalization_handbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canonicalization Handbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#public-handoff-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Public handoff API
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#feature-axis-rule" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feature-axis rule
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#eager-anndata-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eager AnnData handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lazy-anndata-handoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lazy AnnData handoff
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scanpy-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scanpy example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rapids-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RAPIDS example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-results-back-to-the-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Adding results back to the corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#corpus-native-pp-helpers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Corpus-native pp helpers
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="anndata-scanpy-and-rapids-handoff">AnnData, Scanpy, and RAPIDS handoff<a class="headerlink" href="#anndata-scanpy-and-rapids-handoff" title="Permanent link">&para;</a></h1>
+<p>This document describes the boundary between <code>scorpus</code> and standard
+single-cell analysis tools.</p>
+<p><code>scorpus</code> owns corpus materialization, canonical metadata, sparse count
+storage, feature alignment for loaders, durable per-dataset HVG rankings, and
+training/runtime access patterns. After selected corpus rows or datasets are exported
+as <code>AnnData</code>, Scanpy or RAPIDS should own the usual analysis preprocessing.</p>
+<h2 id="public-handoff-api">Public handoff API<a class="headerlink" href="#public-handoff-api" title="Permanent link">&para;</a></h2>
+<p>The handoff API has three parts:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata</span><span class="p">(</span><span class="n">dataset_id</span><span class="o">=</span><span class="s2">"replogle_k562"</span><span class="p">)</span>
+<span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata</span><span class="p">(</span><span class="n">global_row_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="mi">10</span><span class="p">])</span>
+<span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata_lazy</span><span class="p">(</span><span class="n">dataset_id</span><span class="o">=</span><span class="s2">"replogle_k562"</span><span class="p">,</span> <span class="n">chunk_rows</span><span class="o">=</span><span class="mi">4096</span><span class="p">)</span>
+<span class="n">corpus</span><span class="o">.</span><span class="n">add_obs_meta</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">"dataset_id"</span><span class="p">,</span> <span class="s2">"cell_id"</span><span class="p">])</span>
+</code></pre></div>
+<ul>
+<li><code>to_anndata(...)</code> builds a normal in-memory AnnData with SciPy CSR <code>X</code> for whole datasets or selected global rows.</li>
+<li><code>to_anndata_lazy(...)</code> builds an AnnData whose <code>X</code> is a Dask array of sparse CSR chunks read from the corpus backend.</li>
+<li><code>add_obs_meta(...)</code> joins selected cell-level results back into the loaded corpus metadata at runtime.</li>
+</ul>
+<p>Selected-index export requires all global row indices to belong to one dataset.
+It preserves requested order and duplicate rows, and infers the dataset when
+<code>dataset_id</code> is omitted. Cross-dataset selected-index export fails explicitly.</p>
+<h2 id="feature-axis-rule">Feature-axis rule<a class="headerlink" href="#feature-axis-rule" title="Permanent link">&para;</a></h2>
+<p>Single-dataset handoff is always allowed.</p>
+<p>Multi-dataset handoff is allowed only when all selected datasets have exactly the
+same ordered feature axis:</p>
+<ul>
+<li>same number of features</li>
+<li>same <code>canonical_gene_id</code> values</li>
+<li>same feature order</li>
+</ul>
+<p>This check happens before expression is read. If the feature axes differ, the
+export fails instead of trying to silently remap sparse indices.</p>
+<p>Cross-dataset feature reconciliation is a separate future feature. It would need
+a real transformation layer that remaps local feature indices while reading each
+chunk.</p>
+<h2 id="eager-anndata-handoff">Eager AnnData handoff<a class="headerlink" href="#eager-anndata-handoff" title="Permanent link">&para;</a></h2>
+<p>Use <code>to_anndata(...)</code> when the selected rows or whole dataset(s) fit in RAM:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_corpus</span>
+
+<span class="n">corpus</span> <span class="o">=</span> <span class="n">load_corpus</span><span class="p">(</span>
+    <span class="s2">"/path/to/corpus"</span><span class="p">,</span>
+    <span class="n">extra_metadata_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"donor_id"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata</span><span class="p">(</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="s2">"replogle_k562"</span><span class="p">,</span>
+    <span class="n">obs_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"donor_id"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>For a selected row sequence from one dataset:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata</span><span class="p">(</span>
+    <span class="n">global_row_indices</span><span class="o">=</span><span class="p">[</span><span class="mi">105</span><span class="p">,</span> <span class="mi">250</span><span class="p">,</span> <span class="mi">105</span><span class="p">],</span>
+    <span class="n">obs_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The output preserves <code>[105, 250, 105]</code>. Observation names are made unique when
+indices repeat, while <code>adata.obs["global_row_index"]</code> retains the exact values.</p>
+<p>For compatible datasets:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata</span><span class="p">(</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="p">[</span><span class="s2">"dataset_a"</span><span class="p">,</span> <span class="s2">"dataset_b"</span><span class="p">],</span>
+    <span class="n">obs_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"donor_id"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>The export is counts-only. It builds CSR <code>adata.X</code> and does not add normalized or
+log-transformed layers.</p>
+<p><code>adata.obs</code> includes stable provenance fields such as <code>dataset_id</code>,
+<code>dataset_index</code>, <code>global_row_index</code>, <code>local_row_index</code>, and <code>cell_id</code> when those
+columns are present in the loaded metadata. Requested <code>obs_columns</code> are added
+alongside them.</p>
+<p>For single-dataset and selected-index exports, <code>adata.var</code> contains the canonical
+var metadata plus <code>hvg_rank</code> and <code>highly_variable</code> from the corpus HVG ranking.
+For multi-dataset exports, <code>adata.var</code> comes from the first selected dataset after
+the shared feature-axis check.</p>
+<h2 id="lazy-anndata-handoff">Lazy AnnData handoff<a class="headerlink" href="#lazy-anndata-handoff" title="Permanent link">&para;</a></h2>
+<p>Use <code>to_anndata_lazy(...)</code> when the selected whole dataset(s) should stay on disk
+and be read in chunks by Dask:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata_lazy</span><span class="p">(</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="s2">"replogle_k562"</span><span class="p">,</span>
+    <span class="n">obs_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"donor_id"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+    <span class="n">chunk_rows</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Only <code>adata.X</code> is lazy. <code>adata.obs</code> and <code>adata.var</code> are loaded in memory because
+they are small compared with the count matrix.</p>
+<p>The Dask chunks are CSR matrices. Each chunk reads a contiguous row block from
+the active corpus backend:</p>
+<ul>
+<li>Zarr chunks read <code>row_offsets</code>, <code>indices</code>, and <code>counts</code> through the Zarr expression reader.</li>
+<li>Lance chunks read row blocks through the Lance expression reader and unpack Arrow list columns.</li>
+</ul>
+<p>This keeps the handoff lightweight: no new AnnData-Zarr copy is required just to
+let AnnData hold a Dask-backed <code>X</code>.</p>
+<p>For GPU workflows, <code>to_anndata_lazy(..., device="cuda")</code> makes each Dask task
+build a CuPy CSR chunk directly:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata_lazy</span><span class="p">(</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="s2">"replogle_k562"</span><span class="p">,</span>
+    <span class="n">chunk_rows</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span>
+    <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>This still reads Lance/Zarr buffers through CPU memory before the CPU-to-GPU
+transfer, but it avoids constructing an intermediate SciPy CSR matrix inside the
+Dask task. It requires a working CUDA/CuPy runtime.</p>
+<h2 id="scanpy-example">Scanpy example<a class="headerlink" href="#scanpy-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">scanpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sc</span>
+
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">normalize_total</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">target_sum</span><span class="o">=</span><span class="mf">1e4</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">highly_variable_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_top_genes</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">pca</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">leiden</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+</code></pre></div>
+<p>Use this route when the selected AnnData representation is supported by the
+Scanpy function you are calling. Scanpy Dask support is function-specific.</p>
+<h2 id="rapids-example">RAPIDS example<a class="headerlink" href="#rapids-example" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">rapids_singlecell</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rsc</span>
+
+<span class="n">rsc</span><span class="o">.</span><span class="n">get</span><span class="o">.</span><span class="n">anndata_to_GPU</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">normalize_total</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">target_sum</span><span class="o">=</span><span class="mf">1e4</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">highly_variable_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_top_genes</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">pca</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">rsc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">leiden</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+</code></pre></div>
+<p>RAPIDS can work with GPU-backed chunks for supported functions. RAPIDS Dask
+support is still function-specific; for example, <code>rank_genes_groups</code> supports
+Dask for <code>t-test</code>, <code>t-test_overestim_var</code>, and <code>wilcoxon_binned</code>, but not
+regular <code>wilcoxon</code> or <code>logreg</code>.</p>
+<h2 id="adding-results-back-to-the-corpus">Adding results back to the corpus<a class="headerlink" href="#adding-results-back-to-the-corpus" title="Permanent link">&para;</a></h2>
+<p><code>scorpus</code> does not decide how Scanpy/RAPIDS outputs are saved. The user
+owns the AnnData workflow and can add selected cell-level results back to the
+loaded corpus with <code>add_obs_meta(...)</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="n">corpus</span><span class="o">.</span><span class="n">add_obs_meta</span><span class="p">(</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[[</span><span class="s2">"dataset_id"</span><span class="p">,</span> <span class="s2">"cell_id"</span><span class="p">,</span> <span class="s2">"leiden"</span><span class="p">,</span> <span class="s2">"doublet_score"</span><span class="p">]],</span>
+    <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s2">"dataset_id"</span><span class="p">,</span> <span class="s2">"cell_id"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><code>add_obs_meta(...)</code> is strict:</p>
+<ul>
+<li>join keys are required</li>
+<li>incoming rows must cover the full loaded corpus exactly once</li>
+<li>duplicate join keys are rejected</li>
+<li>missing corpus rows are rejected</li>
+<li>extra unmatched rows are rejected</li>
+<li>new metadata column names must not already exist in the corpus</li>
+<li>the update is runtime-only and does not persist to disk</li>
+</ul>
+<p>Preferred join keys are:</p>
+<ul>
+<li><code>on=["dataset_id", "cell_id"]</code></li>
+<li><code>on=["dataset_id", "local_row_index"]</code></li>
+<li><code>on=["global_row_index"]</code></li>
+</ul>
+<p>For a multi-dataset loaded corpus, analyze all feature-compatible datasets
+together or combine per-dataset result frames before calling <code>add_obs_meta(...)</code>.
+Partial subset metadata is rejected because it would leave the corpus in a
+half-annotated runtime state.</p>
+<p>After adding metadata, downstream loaders can use the new columns for sampling or
+pass-through metadata:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_loader</span>
+
+<span class="n">loader</span> <span class="o">=</span> <span class="n">build_loader</span><span class="p">(</span>
+    <span class="n">corpus</span><span class="p">,</span>
+    <span class="n">sampler</span><span class="o">=</span><span class="s2">"context"</span><span class="p">,</span>
+    <span class="n">batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">seq_len</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">context_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"leiden"</span><span class="p">,</span> <span class="s2">"perturb_label"</span><span class="p">],</span>
+    <span class="n">metadata_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"leiden"</span><span class="p">,</span> <span class="s2">"doublet_score"</span><span class="p">],</span>
+<span class="p">)</span>
+</code></pre></div>
+<h2 id="corpus-native-pp-helpers">Corpus-native pp helpers<a class="headerlink" href="#corpus-native-pp-helpers" title="Permanent link">&para;</a></h2>
+<p>Use Scanpy or RAPIDS for normalization, log transforms, PCA, neighbors, UMAP,
+clustering, plotting, batch correction, and exploratory marker ranking.</p>
+<p>Use corpus-native <code>scorpus.pp</code> helpers for durable HVG rankings,
+streamed summary statistics, quick QA/debug checks, and bounded-memory fallback
+workflows when AnnData handoff is not practical.</p>
+<p>The most important durable artifact is the per-dataset <code>hvg.parquet</code> ranking
+table created during materialization or by <code>recalc-hvg</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

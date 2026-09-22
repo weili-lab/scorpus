@@ -1,0 +1,1644 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Sparse single-cell corpora that are cheap to random-access, easy to compose, and ready for AnnData">
+      
+      
+      
+      
+        <link rel="prev" href="../bash_demo/">
+      
+      
+        <link rel="next" href="../demo_walkthrough/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/scorpus_favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Jupyter Walkthrough - scorpus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#jupyter-materialization-demo" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="scorpus" class="md-header__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scorpus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Jupyter Walkthrough
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../composable_corpora/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../demo_canonicalization/" class="md-tabs__link">
+          
+  
+  
+  Curated Corpora (advanced)
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="scorpus" class="md-nav__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    scorpus
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../composable_corpora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion & Composition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../anndata_scanpy_handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnnData Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scanpy_rapids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanpy & RAPIDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend_note/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perttf_loader/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pertTF Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curated Corpora (advanced)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Curated Corpora (advanced)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_canonicalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bash_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bash Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jupyter Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jupyter Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download demo data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-raw-h5ad-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect raw h5ad metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-peek-at-obs-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick peek at obs metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#materialize-a-federated-lance-corpus-both-datasets-at-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materialize a federated Lance corpus (both datasets at once)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-reviewed-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install reviewed schemas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canonicalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonicalize
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validate-and-load-the-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validate and load the corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-canonical-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect canonical metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#perttf-paired-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pertTF paired loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anndata-handoff-dask-backed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AnnData handoff (Dask-backed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#re-running-from-scratch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-running from scratch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scorpus Demo Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspect_materialize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspection & Materialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../canonicalization_handbook/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canonicalization Handbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download demo data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-raw-h5ad-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect raw h5ad metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-peek-at-obs-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick peek at obs metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#materialize-a-federated-lance-corpus-both-datasets-at-once" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Materialize a federated Lance corpus (both datasets at once)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-reviewed-schemas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install reviewed schemas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#canonicalize" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Canonicalize
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#validate-and-load-the-corpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Validate and load the corpus
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inspect-canonical-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inspect canonical metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#perttf-paired-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pertTF paired loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anndata-handoff-dask-backed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AnnData handoff (Dask-backed)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#re-running-from-scratch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Re-running from scratch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="jupyter-materialization-demo">Jupyter Materialization Demo<a class="headerlink" href="#jupyter-materialization-demo" title="Permanent link">&para;</a></h1>
+<p>This page walks through the full demo workflow as a series of Python cells you
+can run in a Jupyter notebook, IPython session, or plain script. Each cell is
+self-contained and builds on the previous one.</p>
+<p>An executed version of this walkthrough is available as a rendered notebook:
+<a href="../demo_walkthrough/">demo walkthrough notebook</a>.</p>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../installation/">Installation</a> completed and <code>pip install -e ".[demo]"</code> succeeded.</li>
+<li>A working Python environment with <code>scorpus</code>, <code>anndata</code>, and <code>scanpy</code> importable.</li>
+<li>Demo data downloaded (see the download cell below).</li>
+</ul>
+<hr />
+<h2 id="download-demo-data">Download demo data<a class="headerlink" href="#download-demo-data" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+<span class="n">repo_root</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span>
+    <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">(),</span> <span class="o">*</span><span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">parents</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">p</span> <span class="o">/</span> <span class="s2">"src"</span> <span class="o">/</span> <span class="s2">"scorpus"</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+<span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">repo_root</span> <span class="o">/</span> <span class="s2">"src"</span><span class="p">))</span>
+
+<span class="n">demo_root</span> <span class="o">=</span> <span class="n">repo_root</span> <span class="o">/</span> <span class="s2">"demo_data"</span>
+<span class="n">base_url</span> <span class="o">=</span> <span class="s2">"https://huggingface.co/datasets/weililab/scorpus-demo/resolve/main"</span>
+<span class="n">files</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">"h5ad/demo_marson_d2_rest.h5ad"</span><span class="p">,</span>
+    <span class="s2">"h5ad/demo_xorion_hct116_dual_guide.h5ad"</span><span class="p">,</span>
+    <span class="s2">"checksums.txt"</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="k">for</span> <span class="n">rel</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">demo_root</span> <span class="o">/</span> <span class="n">rel</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">out</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">: already exists"</span><span class="p">)</span>
+        <span class="k">continue</span>
+    <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">iter_content</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">):</span>
+            <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">rel</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"h5ad/demo_marson_d2_rest.h5ad"</span><span class="p">,</span> <span class="s2">"h5ad/demo_xorion_hct116_dual_guide.h5ad"</span><span class="p">]:</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">demo_root</span> <span class="o">/</span> <span class="n">rel</span>
+    <span class="n">size_mb</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">/</span> <span class="mf">1e6</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">rel</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">size_mb</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> MB </span><span class="si">{</span><span class="s1">'✓'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">f</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'✗ missing'</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="inspect-raw-h5ad-metadata">Inspect raw h5ad metadata<a class="headerlink" href="#inspect-raw-h5ad-metadata" title="Permanent link">&para;</a></h2>
+<p>Inspection reads metadata profiles and samples matrix candidates without loading
+full count matrices. The output <code>dataset-summary.yaml</code> tells you whether the
+file is ready for materialization.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.inspectors</span><span class="w"> </span><span class="kn">import</span> <span class="n">inspect_target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.inspectors.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatasetSummaryDocument</span><span class="p">,</span> <span class="n">InspectionTarget</span>
+
+<span class="n">review_dir</span> <span class="o">=</span> <span class="n">repo_root</span> <span class="o">/</span> <span class="s2">"artifacts"</span> <span class="o">/</span> <span class="s2">"review"</span>
+<span class="n">review_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">datasets</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">"marson_d2_rest"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">demo_root</span> <span class="o">/</span> <span class="s2">"h5ad"</span> <span class="o">/</span> <span class="s2">"demo_marson_d2_rest.h5ad"</span><span class="p">)),</span>
+    <span class="p">(</span><span class="s2">"xorion_hct116_dual_guide"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">demo_root</span> <span class="o">/</span> <span class="s2">"h5ad"</span> <span class="o">/</span> <span class="s2">"demo_xorion_hct116_dual_guide.h5ad"</span><span class="p">)),</span>
+<span class="p">]</span>
+
+<span class="k">for</span> <span class="n">ds_id</span><span class="p">,</span> <span class="n">source_path</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+    <span class="n">artifacts</span> <span class="o">=</span> <span class="n">inspect_target</span><span class="p">(</span>
+        <span class="n">InspectionTarget</span><span class="p">(</span><span class="n">dataset_id</span><span class="o">=</span><span class="n">ds_id</span><span class="p">,</span> <span class="n">source_path</span><span class="o">=</span><span class="n">source_path</span><span class="p">,</span> <span class="n">source_release</span><span class="o">=</span><span class="n">ds_id</span><span class="p">),</span>
+        <span class="n">review_dir</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">summary</span> <span class="o">=</span> <span class="n">DatasetSummaryDocument</span><span class="o">.</span><span class="n">from_yaml_file</span><span class="p">(</span><span class="n">artifacts</span><span class="o">.</span><span class="n">inspection_summary</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  cells: </span><span class="si">{</span><span class="n">summary</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">obs_rows</span><span class="si">}</span><span class="s2">, features: </span><span class="si">{</span><span class="n">summary</span><span class="o">.</span><span class="n">dataset</span><span class="o">.</span><span class="n">var_rows</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  count source: </span><span class="si">{</span><span class="n">summary</span><span class="o">.</span><span class="n">count_source_decision</span><span class="o">.</span><span class="n">selected_candidate</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  readiness: </span><span class="si">{</span><span class="n">summary</span><span class="o">.</span><span class="n">materialization_readiness</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  obs fields (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">obs_fields</span><span class="p">)</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">f</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">summary</span><span class="o">.</span><span class="n">obs_fields</span><span class="p">[:</span><span class="mi">10</span><span class="p">]]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="quick-peek-at-obs-metadata">Quick peek at obs metadata<a class="headerlink" href="#quick-peek-at-obs-metadata" title="Permanent link">&para;</a></h2>
+<p>Let's look at a few rows of raw metadata to understand what each dataset
+contains before canonicalization:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">anndata</span>
+
+<span class="k">for</span> <span class="n">ds_id</span><span class="p">,</span> <span class="n">source_path</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">anndata</span><span class="o">.</span><span class="n">read_h5ad</span><span class="p">(</span><span class="n">source_path</span><span class="p">,</span> <span class="n">backed</span><span class="o">=</span><span class="s2">"r"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- </span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Shape: </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"obs columns: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># Show a few key columns</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"guide_id"</span><span class="p">,</span> <span class="s2">"guide_type"</span><span class="p">,</span> <span class="s2">"perturbed_gene_name"</span><span class="p">,</span>
+                        <span class="s2">"guide_target"</span><span class="p">,</span> <span class="s2">"gene_target"</span><span class="p">,</span> <span class="s2">"sample"</span><span class="p">,</span> <span class="s2">"pass_guide_filter"</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">cols</span><span class="p">:</span>
+        <span class="n">display_cols</span> <span class="o">=</span> <span class="n">cols</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">display_cols</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+</code></pre></div>
+<p>Expected observations:</p>
+<ul>
+<li><strong>Marson</strong>: has <code>guide_id</code>, <code>guide_type</code>, <code>perturbed_gene_name</code>, <code>lane_id</code>, QC columns</li>
+<li><strong>Xorion</strong>: has <code>guide_target</code>, <code>gene_target</code>, <code>sample</code>, <code>pass_guide_filter</code>, QC columns</li>
+</ul>
+<hr />
+<h2 id="materialize-a-federated-lance-corpus-both-datasets-at-once">Materialize a federated Lance corpus (both datasets at once)<a class="headerlink" href="#materialize-a-federated-lance-corpus-both-datasets-at-once" title="Permanent link">&para;</a></h2>
+<p>This builds a <strong>federated</strong> Lance corpus: each dataset gets its own isolated
+<code>matrix/</code> and <code>meta/</code> directory under <code>{corpus}/{dataset_id}/</code>. Both datasets
+are materialized in one Python loop using the materializer API.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers</span><span class="w"> </span><span class="kn">import</span> <span class="n">DatasetMaterializer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">OutputRoots</span><span class="p">,</span> <span class="n">CorpusIndexDocument</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_corpus_paths</span>
+
+<span class="n">corpus_root</span> <span class="o">=</span> <span class="n">repo_root</span> <span class="o">/</span> <span class="s2">"artifacts"</span> <span class="o">/</span> <span class="s2">"demo_corpus"</span>
+<span class="n">corpus_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">ds_id</span><span class="p">,</span> <span class="n">source_path</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">datasets</span><span class="p">):</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="n">resolve_corpus_paths</span><span class="p">(</span><span class="s2">"federated"</span><span class="p">,</span> <span class="n">corpus_root</span><span class="p">,</span> <span class="n">ds_id</span><span class="p">)</span>
+    <span class="n">mode</span> <span class="o">=</span> <span class="s2">"create"</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="s2">"append"</span>
+
+    <span class="n">materializer</span> <span class="o">=</span> <span class="n">DatasetMaterializer</span><span class="p">(</span>
+        <span class="n">source_path</span><span class="o">=</span><span class="n">source_path</span><span class="p">,</span>
+        <span class="n">inspection_summary_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">review_dir</span> <span class="o">/</span> <span class="n">ds_id</span> <span class="o">/</span> <span class="s2">"dataset-summary.yaml"</span><span class="p">),</span>
+        <span class="n">output_roots</span><span class="o">=</span><span class="n">OutputRoots</span><span class="p">(</span>
+            <span class="n">metadata_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">meta_root</span><span class="p">),</span>
+            <span class="n">matrix_root</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="o">.</span><span class="n">matrix_root</span><span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">dataset_id</span><span class="o">=</span><span class="n">ds_id</span><span class="p">,</span>
+        <span class="n">backend</span><span class="o">=</span><span class="s2">"lance"</span><span class="p">,</span>
+        <span class="n">topology</span><span class="o">=</span><span class="s2">"federated"</span><span class="p">,</span>
+        <span class="n">corpus_index_path</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="s2">"corpus-index.yaml"</span><span class="p">),</span>
+        <span class="n">corpus_id</span><span class="o">=</span><span class="s2">"demo_corpus"</span><span class="p">,</span>
+        <span class="n">register</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
+        <span class="n">dataset_index</span><span class="o">=</span><span class="n">i</span><span class="p">,</span>
+        <span class="n">global_row_start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>  <span class="c1"># corpus-index bookkeeping handles federated global ranges</span>
+    <span class="p">)</span>
+    <span class="n">manifest</span> <span class="o">=</span> <span class="n">materializer</span><span class="o">.</span><span class="n">materialize</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">cell_count</span><span class="si">}</span><span class="s2"> cells, </span><span class="si">{</span><span class="n">manifest</span><span class="o">.</span><span class="n">feature_count</span><span class="si">}</span><span class="s2"> features"</span><span class="p">)</span>
+
+<span class="n">index_doc</span> <span class="o">=</span> <span class="n">CorpusIndexDocument</span><span class="o">.</span><span class="n">from_yaml_file</span><span class="p">(</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="s2">"corpus-index.yaml"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">([</span><span class="n">d</span><span class="o">.</span><span class="n">dataset_id</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">index_doc</span><span class="o">.</span><span class="n">datasets</span><span class="p">])</span>
+</code></pre></div>
+<p>The federated layout writes:</p>
+<div class="highlight"><pre><span></span><code>artifacts/demo_corpus/
+├── corpus-index.yaml
+├── global-metadata.yaml
+├── marson_d2_rest/
+│   ├── matrix/marson_d2_rest.lance
+│   └── meta/
+│       ├── raw-obs.parquet
+│       ├── raw-var.parquet
+│       ├── size-factor.parquet
+│       └── hvg.parquet
+└── xorion_hct116_dual_guide/
+    ├── matrix/xorion_hct116_dual_guide.lance
+    └── meta/
+        ├── raw-obs.parquet
+        ├── raw-var.parquet
+        ├── size-factor.parquet
+        └── hvg.parquet
+</code></pre></div>
+<p>For the command-line equivalent, use the <a href="../bash_demo/">Bash Demo</a>.</p>
+<hr />
+<h2 id="install-reviewed-schemas">Install reviewed schemas<a class="headerlink" href="#install-reviewed-schemas" title="Permanent link">&para;</a></h2>
+<p>Copy the reviewed demo final schemas into the corpus. These contain the
+biological decisions that turn raw metadata columns into canonical labels:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+
+<span class="n">schema_root</span> <span class="o">=</span> <span class="n">repo_root</span> <span class="o">/</span> <span class="s2">"examples"</span> <span class="o">/</span> <span class="s2">"demo_canonicalization"</span>
+<span class="k">for</span> <span class="n">ds_id</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="n">schema_root</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2">.final-schema.yaml"</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">corpus_root</span> <span class="o">/</span> <span class="n">ds_id</span> <span class="o">/</span> <span class="s2">"meta"</span> <span class="o">/</span> <span class="s2">"final-schema.yaml"</span>
+    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"installed </span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Verify they landed</span>
+<span class="k">for</span> <span class="n">ds_id</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"marson_d2_rest"</span><span class="p">,</span> <span class="s2">"xorion_hct116_dual_guide"</span><span class="p">]:</span>
+    <span class="n">schema_path</span> <span class="o">=</span> <span class="n">corpus_root</span> <span class="o">/</span> <span class="n">ds_id</span> <span class="o">/</span> <span class="s2">"meta"</span> <span class="o">/</span> <span class="s2">"final-schema.yaml"</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="s1">'✓'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">schema_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'✗ missing'</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p>Read the quick decision sheets that explain what each schema does:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+<span class="n">examples_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"examples/demo_canonicalization"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ds_id</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"marson_d2_rest"</span><span class="p">,</span> <span class="s2">"xorion_hct116_dual_guide"</span><span class="p">]:</span>
+    <span class="n">hints</span> <span class="o">=</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">((</span><span class="n">examples_root</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2">.schema-hints.yaml"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- </span><span class="si">{</span><span class="n">ds_id</span><span class="si">}</span><span class="s2"> hints ---"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">hints</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">info</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p>For a deeper explanation, see <a href="../demo_canonicalization/">Canonicalization</a>.</p>
+<hr />
+<h2 id="canonicalize">Canonicalize<a class="headerlink" href="#canonicalize" title="Permanent link">&para;</a></h2>
+<p>Apply the reviewed schemas to produce canonical obs/var metadata:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.canonical</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_canonicalization</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.materializers.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">MaterializationManifest</span>
+
+<span class="n">index_doc</span> <span class="o">=</span> <span class="n">CorpusIndexDocument</span><span class="o">.</span><span class="n">from_yaml_file</span><span class="p">(</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="s2">"corpus-index.yaml"</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">index_doc</span><span class="o">.</span><span class="n">datasets</span><span class="p">:</span>
+    <span class="n">manifest</span> <span class="o">=</span> <span class="n">MaterializationManifest</span><span class="o">.</span><span class="n">from_yaml_file</span><span class="p">(</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="n">ds</span><span class="o">.</span><span class="n">manifest_path</span><span class="p">)</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="n">resolve_corpus_paths</span><span class="p">(</span><span class="s2">"federated"</span><span class="p">,</span> <span class="n">corpus_root</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">)</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">run_canonicalization</span><span class="p">(</span>
+        <span class="n">dataset_id</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">dataset_id</span><span class="p">,</span>
+        <span class="n">raw_obs_path</span><span class="o">=</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="n">manifest</span><span class="o">.</span><span class="n">raw_cell_meta_path</span><span class="p">,</span>
+        <span class="n">raw_var_path</span><span class="o">=</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="n">manifest</span><span class="o">.</span><span class="n">raw_feature_meta_path</span><span class="p">,</span>
+        <span class="n">size_factor_path</span><span class="o">=</span><span class="n">corpus_root</span> <span class="o">/</span> <span class="n">manifest</span><span class="o">.</span><span class="n">size_factor_parquet_path</span><span class="p">,</span>
+        <span class="n">schema_path</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">meta_root</span> <span class="o">/</span> <span class="s2">"final-schema.yaml"</span><span class="p">,</span>
+        <span class="n">output_root</span><span class="o">=</span><span class="n">paths</span><span class="o">.</span><span class="n">canonical_meta_root</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">dataset_id</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">obs_rows</span><span class="si">}</span><span class="s2"> obs rows, </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">var_rows</span><span class="si">}</span><span class="s2"> var rows"</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="validate-and-load-the-corpus">Validate and load the corpus<a class="headerlink" href="#validate-and-load-the-corpus" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.loaders.validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_corpus_structure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_corpus</span>
+
+<span class="n">report</span> <span class="o">=</span> <span class="n">validate_corpus_structure</span><span class="p">(</span><span class="n">corpus_root</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="p">[</span><span class="s2">"status"</span><span class="p">],</span> <span class="n">report</span><span class="p">[</span><span class="s2">"topology"</span><span class="p">],</span> <span class="n">report</span><span class="p">[</span><span class="s2">"total_rows"</span><span class="p">])</span>
+
+<span class="n">corpus</span> <span class="o">=</span> <span class="n">load_corpus</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">corpus_root</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Datasets: </span><span class="si">{</span><span class="n">corpus</span><span class="o">.</span><span class="n">dataset_ids</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total cells: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">corpus</span><span class="o">.</span><span class="n">metadata_index</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Global vocab size: </span><span class="si">{</span><span class="n">corpus</span><span class="o">.</span><span class="n">feature_registry</span><span class="o">.</span><span class="n">global_vocab_size</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="inspect-canonical-metadata">Inspect canonical metadata<a class="headerlink" href="#inspect-canonical-metadata" title="Permanent link">&para;</a></h2>
+<p>Look at a few rows to confirm canonical labels are sensible:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+
+<span class="c1"># Grab first 10 rows from each dataset</span>
+<span class="n">marson_rows</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">take_metadata</span><span class="p">(</span>
+    <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)),</span>
+    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"dataset_id"</span><span class="p">,</span> <span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"condition"</span><span class="p">,</span> <span class="s2">"perturb_type"</span><span class="p">,</span>
+             <span class="s2">"cell_context"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">,</span> <span class="s2">"gene_id"</span><span class="p">],</span>
+<span class="p">)</span>
+<span class="n">xorion_rows</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">take_metadata</span><span class="p">(</span>
+    <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">2720</span><span class="p">,</span> <span class="mi">2730</span><span class="p">)),</span>
+    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"dataset_id"</span><span class="p">,</span> <span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"condition"</span><span class="p">,</span> <span class="s2">"perturb_type"</span><span class="p">,</span>
+             <span class="s2">"cell_context"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">,</span> <span class="s2">"gene_id"</span><span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"--- Marson ---"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">marson_rows</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Xorion ---"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">xorion_rows</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Quick stats</span>
+<span class="n">meta</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">metadata_index</span><span class="o">.</span><span class="n">df</span>
+<span class="n">all_perturb_labels</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get_column</span><span class="p">(</span><span class="s2">"perturb_label"</span><span class="p">)</span>
+
+<span class="c1"># Count control vs treated</span>
+<span class="n">ctrl_count</span> <span class="o">=</span> <span class="p">(</span><span class="n">pl</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">all_perturb_labels</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"ctrl"</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_perturb_labels</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Control rows: </span><span class="si">{</span><span class="n">ctrl_count</span><span class="si">}</span><span class="s2"> / </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">ctrl_count</span><span class="o">/</span><span class="n">total</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2">%)"</span><span class="p">)</span>
+
+<span class="c1"># Unique conditions</span>
+<span class="n">conditions</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get_column</span><span class="p">(</span><span class="s2">"condition"</span><span class="p">)</span>
+<span class="n">unique</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">conditions</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unique conditions: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">unique</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sample conditions: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">unique</span><span class="p">)[:</span><span class="mi">10</span><span class="p">]</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="perttf-paired-loading">pertTF paired loading<a class="headerlink" href="#perttf-paired-loading" title="Permanent link">&para;</a></h2>
+<p>The paired loader, perturbation sampler, and model-specific vocabulary adapter
+are no longer part of <code>scorpus</code>. They live in pertTF as
+<code>perttf.model.corpus_adapter</code>, and <code>perttf.model.corpus_data.produce_corpus_datasets</code>
+builds the full training/validation dictionary from a loaded corpus.</p>
+<p>For a model-independent sparse batch loader, <code>scorpus</code> provides:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">scorpus.loaders</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_loader</span>
+
+<span class="n">batch</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">build_loader</span><span class="p">(</span><span class="n">corpus</span><span class="p">,</span> <span class="n">seq_len</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">4</span><span class="p">)))</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+</code></pre></div>
+<p>See <a href="../perttf_loader/">pertTF integration</a>.</p>
+<hr />
+<h2 id="anndata-handoff-dask-backed">AnnData handoff (Dask-backed)<a class="headerlink" href="#anndata-handoff-dask-backed" title="Permanent link">&para;</a></h2>
+<p>Export the combined corpus as a Dask-backed AnnData with inner-join on features:</p>
+<div class="highlight"><pre><span></span><code><span class="n">adata</span> <span class="o">=</span> <span class="n">corpus</span><span class="o">.</span><span class="n">to_anndata_lazy</span><span class="p">(</span>
+    <span class="n">dataset_id</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">corpus</span><span class="o">.</span><span class="n">dataset_ids</span><span class="p">),</span>
+    <span class="n">obs_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">"perturb_label"</span><span class="p">,</span> <span class="s2">"condition"</span><span class="p">,</span> <span class="s2">"cell_context"</span><span class="p">,</span> <span class="s2">"batch_id"</span><span class="p">],</span>
+    <span class="n">chunk_rows</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+    <span class="n">var_join</span><span class="o">=</span><span class="s2">"inner"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"adata shape: </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"adata.X type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"obs columns: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"var columns: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Show the intersection gene axis (first few)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Intersection features: </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">to_string</span><span class="p">())</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="c1"># Quick Scanpy smoke on the Dask-backed AnnData</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scanpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sc</span>
+
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">normalize_total</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">target_sum</span><span class="o">=</span><span class="mf">1e4</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+<span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">highly_variable_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_top_genes</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"HVG selected: </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">'highly_variable'</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="c1"># Force a small computation to confirm Dask works</span>
+<span class="n">subset</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[:</span><span class="mi">100</span><span class="p">,</span> <span class="p">:</span><span class="mi">100</span><span class="p">]</span><span class="o">.</span><span class="n">to_memory</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subset shape: </span><span class="si">{</span><span class="n">subset</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subset X nnz: </span><span class="si">{</span><span class="n">subset</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">nnz</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<p>For the full Scanpy/RAPIDS story, see <a href="../scanpy_rapids/">Scanpy &amp; RAPIDS</a>.</p>
+<hr />
+<h2 id="re-running-from-scratch">Re-running from scratch<a class="headerlink" href="#re-running-from-scratch" title="Permanent link">&para;</a></h2>
+<p>Delete the artifacts directory and re-run from the download cell:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="s2">"./artifacts"</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</code></pre></div>
+<p>The demo data under <code>./demo_data/</code> does not need to be re-downloaded.</p>
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong><a href="../bash_demo/">Bash Demo</a></strong> — the CLI equivalent for scripting</li>
+<li><strong><a href="../demo_canonicalization/">Canonicalization</a></strong> — understand the two schema decisions</li>
+<li><strong><a href="../perttf_loader/">pertTF integration</a></strong> — where the paired loader now lives</li>
+<li><strong><a href="../scanpy_rapids/">Scanpy &amp; RAPIDS</a></strong> — Dask-backed AnnData, CPU Scanpy, GPU RAPIDS</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

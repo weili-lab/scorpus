@@ -1,0 +1,2226 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Sparse single-cell corpora that are cheap to random-access, easy to compose, and ready for AnnData">
+      
+      
+      
+      
+        <link rel="prev" href="../inspect_materialize/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/scorpus_favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Canonicalization Handbook - scorpus</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#canonicalization-handbook" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="scorpus" class="md-header__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            scorpus
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Canonicalization Handbook
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../quickstart/" class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../composable_corpora/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../demo_canonicalization/" class="md-tabs__link">
+          
+  
+  
+  Curated Corpora (advanced)
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="scorpus" class="md-nav__button md-logo" aria-label="scorpus" data-md-component="logo">
+      
+  <img src="../assets/scorpus_mark.png" alt="logo">
+
+    </a>
+    scorpus
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/weili-lab/scorpus" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../composable_corpora/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conversion & Composition
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../anndata_scanpy_handoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AnnData Handoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../scanpy_rapids/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scanpy & RAPIDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../backend_note/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Backend Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perttf_loader/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    pertTF Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curated Corpora (advanced)
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Curated Corpora (advanced)
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_canonicalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../bash_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bash Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jupyter_demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Jupyter Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo_walkthrough/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    scorpus Demo Walkthrough
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../inspect_materialize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Inspection & Materialization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canonicalization Handbook
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Canonicalization Handbook
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-canonicalization-fits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where Canonicalization Fits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs and Outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-by-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths by Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-schema-versus-final-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Schema Versus Final Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-canonical-obs-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Canonical Obs Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-canonical-var-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Canonical Var Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#raw-sidecar-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raw Sidecar Loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#obs-mapping-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Obs Mapping Strategies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Obs Mapping Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source-field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#literal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        literal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passthrough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        passthrough
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        row-index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coalesce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coalesce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#join" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        join
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        template
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        conditional
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#var-mapping-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Var Mapping Strategies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extensible-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extensible Columns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transform-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transform Execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gene-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gene Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-feature-alignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Feature Alignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-minimal-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Minimal Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Failure Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#where-canonicalization-fits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where Canonicalization Fits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inputs-and-outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Inputs and Outputs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#paths-by-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Paths by Topology
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI Workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#draft-schema-versus-final-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft Schema Versus Final Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-canonical-obs-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Canonical Obs Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-canonical-var-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Canonical Var Fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#raw-sidecar-loading" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raw Sidecar Loading
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#obs-mapping-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Obs Mapping Strategies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Obs Mapping Strategies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#source-field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        source-field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#literal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        literal
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#passthrough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        passthrough
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-index" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        row-index
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#null" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        null
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#coalesce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        coalesce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#join" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        join
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        template
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        conditional
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#var-mapping-strategies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Var Mapping Strategies
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#extensible-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Extensible Columns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#transform-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transform Execution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gene-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gene Mapping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtime-feature-alignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Runtime Feature Alignment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#review-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Review Checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#worked-minimal-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Worked Minimal Schema
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#common-failure-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Failure Modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="canonicalization-handbook">Canonicalization Handbook<a class="headerlink" href="#canonicalization-handbook" title="Permanent link">&para;</a></h1>
+<p>Canonicalization turns materialized raw metadata sidecars into loader-ready
+canonical obs and var parquet files. It is the main manual review step in the
+repo because every perturb-seq source uses different metadata fields.</p>
+<h2 id="where-canonicalization-fits">Where Canonicalization Fits<a class="headerlink" href="#where-canonicalization-fits" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>inspect
+  -&gt; materialize
+  -&gt; draft-schema
+  -&gt; review and write final-schema.yaml
+  -&gt; canonicalize
+  -&gt; load_corpus()
+</code></pre></div>
+<p>Materialization preserves raw source truth. Canonicalization adds a reviewed,
+consistent view used by runtime loaders. It does not rewrite the sparse count
+matrix.</p>
+<h2 id="inputs-and-outputs">Inputs and Outputs<a class="headerlink" href="#inputs-and-outputs" title="Permanent link">&para;</a></h2>
+<p>For each dataset, canonicalization reads:</p>
+<ul>
+<li><code>dataset-summary.yaml</code></li>
+<li><code>materialization-manifest.yaml</code></li>
+<li><code>raw-obs.parquet</code></li>
+<li><code>raw-var.parquet</code></li>
+<li><code>size-factor.parquet</code> when present</li>
+<li><code>final-schema.yaml</code></li>
+</ul>
+<p>It writes:</p>
+<ul>
+<li><code>canonical_meta/canonical-obs.parquet</code></li>
+<li><code>canonical_meta/canonical-var.parquet</code></li>
+</ul>
+<p><code>canonicalize</code> does not write a corpus-level vocabulary YAML as part of the
+public CLI path. Runtime feature alignment is reconstructed by <code>load_corpus()</code>
+from <code>canonical-var.parquet</code> files.</p>
+<h2 id="paths-by-topology">Paths by Topology<a class="headerlink" href="#paths-by-topology" title="Permanent link">&para;</a></h2>
+<p>Aggregate topology:</p>
+<div class="highlight"><pre><span></span><code>corpus/
+└── meta/
+    └── &lt;dataset_id&gt;/
+        ├── raw-obs.parquet
+        ├── raw-var.parquet
+        ├── size-factor.parquet
+        ├── draft-schema.yaml
+        ├── final-schema.yaml
+        └── canonical_meta/
+            ├── canonical-obs.parquet
+            └── canonical-var.parquet
+</code></pre></div>
+<p>Federated topology:</p>
+<div class="highlight"><pre><span></span><code>corpus/
+└── &lt;dataset_id&gt;/
+    └── meta/
+        ├── raw-obs.parquet
+        ├── raw-var.parquet
+        ├── size-factor.parquet
+        ├── draft-schema.yaml
+        ├── final-schema.yaml
+        └── canonical_meta/
+            ├── canonical-obs.parquet
+            └── canonical-var.parquet
+</code></pre></div>
+<p>The CLI resolves these paths from <code>corpus-index.yaml</code>, so most users only pass
+the corpus root.</p>
+<h2 id="cli-workflow">CLI Workflow<a class="headerlink" href="#cli-workflow" title="Permanent link">&para;</a></h2>
+<p>Draft schemas after materialization:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>draft-schema<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--corpus<span class="w"> </span>/path/to/corpus
+</code></pre></div>
+<p>This writes one <code>draft-schema.yaml</code> per uncanonicalized dataset. Existing drafts
+are skipped unless <code>--force-all</code> is used.</p>
+<p>Review each draft and save the approved version as <code>final-schema.yaml</code> in the
+same dataset metadata directory.</p>
+<p>Dry-run canonicalization:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>canonicalize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--corpus<span class="w"> </span>/path/to/corpus<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dry-run
+</code></pre></div>
+<p>Canonicalize all datasets that have <code>final-schema.yaml</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>canonicalize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--corpus<span class="w"> </span>/path/to/corpus
+</code></pre></div>
+<p>Canonicalize one dataset:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">PYTHONPATH</span><span class="o">=</span>src<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>scorpus.cli<span class="w"> </span>canonicalize<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--corpus<span class="w"> </span>/path/to/corpus<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--dataset-id<span class="w"> </span>my_dataset
+</code></pre></div>
+<p>Bulk canonicalization continues past failures and reports all failed datasets at
+the end.</p>
+<h2 id="draft-schema-versus-final-schema">Draft Schema Versus Final Schema<a class="headerlink" href="#draft-schema-versus-final-schema" title="Permanent link">&para;</a></h2>
+<p><code>draft-schema.yaml</code> is heuristic. It uses inspection profiles and raw sidecar
+field names to produce a starting point.</p>
+<p><code>final-schema.yaml</code> is the reviewed schema executed by <code>canonicalize</code>.</p>
+<p>Recommended review rule: keep the smallest faithful mapping that represents the
+dataset. Do not promote high-cardinality or ambiguous raw fields unless a
+downstream workflow needs them.</p>
+<p>Set <code>status: ready</code> in reviewed schemas for human clarity. The current schema
+loader accepts both <code>draft</code> and <code>ready</code>, but the filename <code>final-schema.yaml</code> is
+what the CLI discovers.</p>
+<h2 id="schema-structure">Schema Structure<a class="headerlink" href="#schema-structure" title="Permanent link">&para;</a></h2>
+<p>Minimal shape:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">canonicalization-schema</span>
+<span class="nt">contract_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3.0</span>
+<span class="nt">dataset_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_dataset</span>
+<span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ready</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Reviewed canonicalization schema for my_dataset.</span>
+
+<span class="nt">gene_mapping</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">identity</span>
+<span class="w">  </span><span class="nt">source_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">target_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">mapping_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="nt">obs_column_mappings</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="nt">obs_extensible</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="nt">var_column_mappings</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="nt">var_extensible</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="nt">notes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</code></pre></div>
+<p>The runner validates duplicate canonical names across normal mappings and
+extensible columns. It also requires all required canonical obs and var fields
+to be produced.</p>
+<h2 id="required-canonical-obs-fields">Required Canonical Obs Fields<a class="headerlink" href="#required-canonical-obs-fields" title="Permanent link">&para;</a></h2>
+<p>Every <code>canonical-obs.parquet</code> must contain:</p>
+<ul>
+<li><code>assay</code></li>
+<li><code>batch_id</code></li>
+<li><code>cell_context</code></li>
+<li><code>cell_id</code></li>
+<li><code>cell_line_or_type</code></li>
+<li><code>condition</code></li>
+<li><code>dataset_id</code></li>
+<li><code>dataset_index</code></li>
+<li><code>disease_state</code></li>
+<li><code>donor_id</code></li>
+<li><code>dose</code></li>
+<li><code>dose_unit</code></li>
+<li><code>global_row_index</code></li>
+<li><code>local_row_index</code></li>
+<li><code>perturb_label</code></li>
+<li><code>perturb_type</code></li>
+<li><code>sex</code></li>
+<li><code>size_factor</code></li>
+<li><code>species</code></li>
+<li><code>timepoint</code></li>
+<li><code>timepoint_unit</code></li>
+<li><code>tissue</code></li>
+</ul>
+<p>Typed obs fields:</p>
+<ul>
+<li><code>global_row_index</code>: int64</li>
+<li><code>dataset_index</code>: int32</li>
+<li><code>local_row_index</code>: int64</li>
+<li><code>size_factor</code>: float64</li>
+</ul>
+<p>Nullable string obs fields:</p>
+<ul>
+<li><code>dose</code></li>
+<li><code>dose_unit</code></li>
+<li><code>timepoint</code></li>
+<li><code>timepoint_unit</code></li>
+</ul>
+<p>All other required obs fields are written as strings. Missing string values use
+the mapping fallback, usually <code>NA</code>.</p>
+<h2 id="required-canonical-var-fields">Required Canonical Var Fields<a class="headerlink" href="#required-canonical-var-fields" title="Permanent link">&para;</a></h2>
+<p>Every <code>canonical-var.parquet</code> must contain:</p>
+<ul>
+<li><code>origin_index</code></li>
+<li><code>gene_id</code></li>
+<li><code>canonical_gene_id</code></li>
+<li><code>global_id</code></li>
+</ul>
+<p>Meanings:</p>
+<ul>
+<li><code>origin_index</code>: dataset-local feature order from the materialized count matrix</li>
+<li><code>gene_id</code>: source gene/feature identifier used as the input to gene mapping</li>
+<li><code>canonical_gene_id</code>: harmonized identifier used for corpus-level feature alignment</li>
+<li><code>global_id</code>: deterministic per-dataset field written during canonicalization</li>
+</ul>
+<p>Runtime loaders do not trust <code>global_id</code> as the corpus-global feature contract.
+<code>FeatureRegistry</code> rebuilds corpus-global feature IDs from <code>canonical_gene_id</code>.</p>
+<h2 id="raw-sidecar-loading">Raw Sidecar Loading<a class="headerlink" href="#raw-sidecar-loading" title="Permanent link">&para;</a></h2>
+<p><code>raw-obs.parquet</code> stores stable top-level fields plus a JSON <code>raw_fields</code> column.
+During canonicalization, the runner expands <code>raw_fields</code> so schema mappings can
+refer to the original obs columns by name.</p>
+<p><code>raw-var.parquet</code> stores <code>origin_index</code>, <code>feature_id</code>, and JSON <code>raw_var</code>. The
+runner expands <code>raw_var</code> so schema mappings can refer to original var columns by
+name.</p>
+<p><code>size-factor.parquet</code> is aligned by <code>cell_id</code> when needed. If no size-factor file
+is present, <code>size_factor</code> defaults to <code>1.0</code>.</p>
+<h2 id="obs-mapping-strategies">Obs Mapping Strategies<a class="headerlink" href="#obs-mapping-strategies" title="Permanent link">&para;</a></h2>
+<h3 id="source-field"><code>source-field</code><a class="headerlink" href="#source-field" title="Permanent link">&para;</a></h3>
+<p>Read one raw obs column and apply transforms.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_line_or_type</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">  </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_type</span>
+<span class="w">  </span><span class="nt">transforms</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_whitespace</span>
+<span class="w">      </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+</code></pre></div>
+<p>If the source column is missing, the runner fills the field with <code>fallback</code> and
+records a warning.</p>
+<p>Special case: <code>size_factor</code> with <code>source-field</code> reads from the size-factor vector
+rather than raw obs.</p>
+<h3 id="literal"><code>literal</code><a class="headerlink" href="#literal" title="Permanent link">&para;</a></h3>
+<p>Fill one constant value for every row.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">species</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">literal</span>
+<span class="w">  </span><span class="nt">literal_value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">human</span>
+</code></pre></div>
+<h3 id="passthrough"><code>passthrough</code><a class="headerlink" href="#passthrough" title="Permanent link">&para;</a></h3>
+<p>Copy a raw column. The runner first looks for a raw column named the same as the
+canonical field, then uses <code>source_column</code> if provided.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">batch_id</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passthrough</span>
+<span class="w">  </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">batch</span>
+</code></pre></div>
+<p>If no column is found, the field is filled with <code>fallback</code> and a warning is
+recorded.</p>
+<h3 id="row-index"><code>row-index</code><a class="headerlink" href="#row-index" title="Permanent link">&para;</a></h3>
+<p>Write zero-based row order for the materialized dataset.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local_row_index</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">row-index</span>
+</code></pre></div>
+<p>Use this for <code>local_row_index</code>. <code>global_row_index</code> should usually come from the
+raw obs sidecar because materialization registered corpus-global row ranges.</p>
+<h3 id="null"><code>null</code><a class="headerlink" href="#null" title="Permanent link">&para;</a></h3>
+<p>Fill every row with <code>fallback</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disease_state</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="nt">fallback</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NA</span>
+</code></pre></div>
+<h3 id="coalesce"><code>coalesce</code><a class="headerlink" href="#coalesce" title="Permanent link">&para;</a></h3>
+<p>Pick the first non-null-like value from ordered source columns, then apply
+transforms.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturb_label</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">coalesce</span>
+<span class="w">  </span><span class="nt">source_columns</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">perturbation</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">target_gene</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">guide_id</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">transforms</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_whitespace</span>
+<span class="w">      </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_guide_suffix</span>
+<span class="w">      </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_control_labels</span>
+<span class="w">      </span><span class="nt">args</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">candidates</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">NTC</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">non-targeting</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctrl</span>
+</code></pre></div>
+<p>All listed source columns must exist.</p>
+<h3 id="join"><code>join</code><a class="headerlink" href="#join" title="Permanent link">&para;</a></h3>
+<p>Join multiple source columns into one string.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">condition</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">join</span>
+<span class="w">  </span><span class="nt">source_columns</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">treatment</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">dose</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">separator</span><span class="p">:</span><span class="w"> </span><span class="s">"_"</span>
+<span class="w">  </span><span class="nt">skip_nulls</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</code></pre></div>
+<p>All listed source columns must exist.</p>
+<h3 id="template"><code>template</code><a class="headerlink" href="#template" title="Permanent link">&para;</a></h3>
+<p>Render a Python-style format string from raw source columns.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">condition</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">template</span>
+<span class="w">  </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="s">"{treatment}_{timepoint}h"</span>
+<span class="w">  </span><span class="nt">missing_value_behavior</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fallback</span>
+</code></pre></div>
+<p>Template fields are discovered from braces and must exist in raw obs.</p>
+<p><code>missing_value_behavior</code> can be:</p>
+<ul>
+<li><code>fallback</code>: return the mapping fallback when any template field is null-like</li>
+<li><code>empty</code>: render missing fields as empty strings</li>
+<li><code>literal</code>: use <code>missing_value</code> for missing fields</li>
+</ul>
+<h3 id="conditional"><code>conditional</code><a class="headerlink" href="#conditional" title="Permanent link">&para;</a></h3>
+<p>Evaluate ordered cases and use the first matching result.</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturb_type</span>
+<span class="w">  </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">conditional</span>
+<span class="w">  </span><span class="nt">cases</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">is_control</span>
+<span class="w">      </span><span class="nt">predicate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">equals</span>
+<span class="w">      </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">"true"</span>
+<span class="w">      </span><span class="nt">result_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturbation</span>
+<span class="w">      </span><span class="nt">predicate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">not_null</span>
+<span class="w">      </span><span class="nt">result_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crispr</span>
+<span class="w">  </span><span class="nt">default_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unknown</span>
+</code></pre></div>
+<p>Supported predicates:</p>
+<ul>
+<li><code>equals</code></li>
+<li><code>in</code></li>
+<li><code>not_null</code></li>
+</ul>
+<p>Each case must provide exactly one of <code>result_literal</code> or
+<code>result_source_column</code>. Defaults can use <code>default_literal</code> or
+<code>default_source_column</code>.</p>
+<h2 id="var-mapping-strategies">Var Mapping Strategies<a class="headerlink" href="#var-mapping-strategies" title="Permanent link">&para;</a></h2>
+<p>The schema allows these var strategies:</p>
+<ul>
+<li><code>source-field</code></li>
+<li><code>literal</code></li>
+<li><code>passthrough</code></li>
+<li><code>gene-mapping</code></li>
+<li><code>auto</code></li>
+<li><code>null</code></li>
+</ul>
+<p>The current runner has special handling for the four required var fields by
+canonical name:</p>
+<ul>
+<li><code>origin_index</code>: read from raw var <code>origin_index</code> or the configured source column</li>
+<li><code>gene_id</code>: read from the configured <code>source_column</code> or raw <code>gene_id</code></li>
+<li><code>canonical_gene_id</code>: produced from <code>gene_id</code> through the top-level <code>gene_mapping</code> block</li>
+<li><code>global_id</code>: assigned deterministically within the dataset from sorted canonical gene IDs</li>
+</ul>
+<p>Practical required-var block:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">var_column_mappings</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">origin_index</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passthrough</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feature_id</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">canonical_gene_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene-mapping</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">global_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+</code></pre></div>
+<p>Current caveat: transforms listed on the required <code>gene_id</code> mapping are not
+applied before gene mapping because the runner collects <code>gene_id</code> values before
+generic var transform handling. If exact gene cleanup is needed, provide a raw
+source column that is already in the desired form, use a mapping file, or
+preprocess the source metadata before materialization.</p>
+<h2 id="extensible-columns">Extensible Columns<a class="headerlink" href="#extensible-columns" title="Permanent link">&para;</a></h2>
+<p>Use <code>obs_extensible</code> or <code>var_extensible</code> to carry optional raw fields into
+canonical parquet files without making them part of the required schema.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">obs_extensible</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">raw_source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">donor_age</span>
+<span class="w">    </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">donor_age</span>
+
+<span class="nt">var_extensible</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">raw_source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">highly_variable</span>
+<span class="w">    </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source_highly_variable</span>
+</code></pre></div>
+<p>If an extensible raw source column is missing, the output column is filled with
+<code>NA</code> and a warning is recorded.</p>
+<h2 id="transform-execution">Transform Execution<a class="headerlink" href="#transform-execution" title="Permanent link">&para;</a></h2>
+<p>Transforms run after a mapping strategy resolves a value.</p>
+<p>For obs mappings:</p>
+<ul>
+<li><code>source-field</code>: transforms apply to the extracted value</li>
+<li><code>coalesce</code>: transforms apply to the selected value</li>
+<li><code>join</code>: transforms apply to the joined value</li>
+<li><code>template</code>: transforms apply to the rendered value</li>
+<li><code>conditional</code>: transforms apply to the selected case/default result</li>
+</ul>
+<p>Transforms run in YAML order. Unknown transform names are logged and skipped.
+If a transform raises an exception or the final value is null-like, the mapping
+uses its <code>fallback</code>.</p>
+<p>Runtime-dispatched transforms:</p>
+<ul>
+<li><code>map_control_labels</code></li>
+<li><code>strip_whitespace</code></li>
+<li><code>replace_empty_with_null</code></li>
+<li><code>strip_prefix</code></li>
+<li><code>strip_suffix</code></li>
+<li><code>strip_guide_suffix</code></li>
+<li><code>regex_sub</code></li>
+<li><code>normalize_case</code></li>
+<li><code>map_values</code></li>
+<li><code>split_on_delimiter</code></li>
+<li><code>dose_parse</code></li>
+<li><code>dose_unit</code></li>
+<li><code>timepoint_parse</code></li>
+<li><code>timepoint_unit</code></li>
+<li><code>normalize_time_unit</code></li>
+<li><code>normalize_dose_unit</code></li>
+<li><code>strip_ensembl_version</code></li>
+<li><code>normalize_boolean</code></li>
+</ul>
+<p>Practical ordering: clean first, then harmonize.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">transforms</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_whitespace</span>
+<span class="w">    </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_guide_suffix</span>
+<span class="w">    </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_control_labels</span>
+<span class="w">    </span><span class="nt">args</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">candidates</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">NTC</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">non-targeting</span><span class="p p-Indicator">]</span>
+<span class="w">      </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctrl</span>
+</code></pre></div>
+<h2 id="gene-mapping">Gene Mapping<a class="headerlink" href="#gene-mapping" title="Permanent link">&para;</a></h2>
+<p>The top-level <code>gene_mapping</code> block controls how <code>gene_id</code> becomes
+<code>canonical_gene_id</code>.</p>
+<p>Supported engines:</p>
+<ul>
+<li><code>identity</code>: <code>canonical_gene_id = gene_id</code></li>
+<li><code>mapping_file</code>: tab-separated mapping file, first column raw gene ID, second column canonical gene ID</li>
+<li><code>gget</code>: <code>gget.convert(...)</code> when <code>gget</code> is installed</li>
+</ul>
+<p>Identity example:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">gene_mapping</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">identity</span>
+<span class="w">  </span><span class="nt">source_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">target_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">mapping_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+</code></pre></div>
+<p>Mapping-file example:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">gene_mapping</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mapping_file</span>
+<span class="w">  </span><span class="nt">source_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">target_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ensembl_gene_id</span>
+<span class="w">  </span><span class="nt">mapping_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./artifacts/gene_symbol_to_ensembl.tsv</span>
+</code></pre></div>
+<p>If <code>gget</code> is unavailable or conversion fails, the current runner logs a warning
+and falls back to identity mapping.</p>
+<h2 id="runtime-feature-alignment">Runtime Feature Alignment<a class="headerlink" href="#runtime-feature-alignment" title="Permanent link">&para;</a></h2>
+<p><code>load_corpus()</code> builds <code>FeatureRegistry</code> from every dataset's
+<code>canonical-var.parquet</code>.</p>
+<p>The registry:</p>
+<ol>
+<li>Reads datasets in <code>corpus-index.yaml</code> order.</li>
+<li>Casts <code>origin_index</code> to integer and sorts rows by <code>origin_index</code>.</li>
+<li>Requires <code>origin_index</code> to be contiguous <code>0..n_vars-1</code> after sorting.</li>
+<li>Walks <code>canonical_gene_id</code> values in local feature order.</li>
+<li>Assigns the next corpus-global feature ID when a <code>canonical_gene_id</code> is first seen.</li>
+<li>Builds each dataset's local-feature-index to global-feature-ID mapping.</li>
+</ol>
+<p>This means <code>origin_index</code> and <code>canonical_gene_id</code> are the two var fields that
+most directly affect runtime feature correctness.</p>
+<h2 id="review-checklist">Review Checklist<a class="headerlink" href="#review-checklist" title="Permanent link">&para;</a></h2>
+<p>Before copying a draft to <code>final-schema.yaml</code>, check:</p>
+<ul>
+<li><code>dataset_id</code> matches the corpus dataset ID exactly.</li>
+<li>Every required obs field has one mapping.</li>
+<li>Every required var field has one mapping.</li>
+<li>No canonical field appears both in mappings and extensible columns.</li>
+<li><code>perturb_label</code> values make biological sense.</li>
+<li>Control labels are mapped consistently across datasets.</li>
+<li><code>perturb_type</code> separates controls from treated cells when possible.</li>
+<li><code>cell_context</code>, <code>cell_line_or_type</code>, <code>assay</code>, <code>species</code>, and <code>tissue</code> are not guessed beyond source evidence.</li>
+<li><code>dose</code>, <code>dose_unit</code>, <code>timepoint</code>, and <code>timepoint_unit</code> are null when unavailable rather than invented.</li>
+<li><code>gene_id</code> source matches the matrix feature order.</li>
+<li><code>canonical_gene_id</code> namespace is consistent across datasets intended to share a feature vocabulary.</li>
+<li>Optional high-cardinality fields are kept as extensible fields only when needed.</li>
+</ul>
+<h2 id="worked-minimal-schema">Worked Minimal Schema<a class="headerlink" href="#worked-minimal-schema" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">canonicalization-schema</span>
+<span class="nt">contract_version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.3.0</span>
+<span class="nt">dataset_id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my_dataset</span>
+<span class="nt">status</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ready</span>
+<span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Minimal reviewed schema.</span>
+
+<span class="nt">gene_mapping</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">identity</span>
+<span class="w">  </span><span class="nt">source_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">target_namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_symbol</span>
+<span class="w">  </span><span class="nt">mapping_file</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="nt">obs_column_mappings</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">assay</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">literal</span>
+<span class="w">    </span><span class="nt">literal_value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Perturb-seq</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">batch_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">batch</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_context</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_type</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passthrough</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_line_or_type</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cell_type</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">condition</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passthrough</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_index</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dataset_index</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">disease_state</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">donor_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dose</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dose_unit</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">global_row_index</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">global_row_index</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local_row_index</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">local_row_index</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturb_label</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">coalesce</span>
+<span class="w">    </span><span class="nt">source_columns</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">perturbation</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">target_gene</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">transforms</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_whitespace</span>
+<span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">strip_guide_suffix</span>
+<span class="w">        </span><span class="nt">args</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{}</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">map_control_labels</span>
+<span class="w">        </span><span class="nt">args</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">candidates</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">NTC</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">non-targeting</span><span class="p p-Indicator">]</span>
+<span class="w">          </span><span class="nt">output</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ctrl</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturb_type</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">conditional</span>
+<span class="w">    </span><span class="nt">cases</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturbation</span>
+<span class="w">        </span><span class="nt">predicate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">in</span>
+<span class="w">        </span><span class="nt">values</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">NTC</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">non-targeting</span><span class="p p-Indicator">]</span>
+<span class="w">        </span><span class="nt">result_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">control</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">perturbation</span>
+<span class="w">        </span><span class="nt">predicate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">not_null</span>
+<span class="w">        </span><span class="nt">result_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">crispr</span>
+<span class="w">    </span><span class="nt">default_literal</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">unknown</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sex</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">size_factor</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">size_factor</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">species</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">literal</span>
+<span class="w">    </span><span class="nt">literal_value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">human</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">timepoint</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">timepoint_unit</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tissue</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">null</span>
+
+<span class="nt">obs_extensible</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+
+<span class="nt">var_column_mappings</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">origin_index</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">passthrough</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">source-field</span>
+<span class="w">    </span><span class="nt">source_column</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">feature_id</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">canonical_gene_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gene-mapping</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">canonical_name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">global_id</span>
+<span class="w">    </span><span class="nt">strategy</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span>
+
+<span class="nt">var_extensible</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+<span class="nt">notes</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[]</span>
+</code></pre></div>
+<h2 id="common-failure-modes">Common Failure Modes<a class="headerlink" href="#common-failure-modes" title="Permanent link">&para;</a></h2>
+<p>Missing required canonical obs fields:</p>
+<ul>
+<li>Add mappings for every field listed in the required obs section.</li>
+</ul>
+<p>Missing required canonical var fields:</p>
+<ul>
+<li>Add <code>origin_index</code>, <code>gene_id</code>, <code>canonical_gene_id</code>, and <code>global_id</code> mappings.</li>
+</ul>
+<p>Duplicate canonical names:</p>
+<ul>
+<li>Remove duplicate mappings or duplicate extensible entries.</li>
+</ul>
+<p>Missing raw columns:</p>
+<ul>
+<li>Check <code>raw-obs.parquet</code>, <code>raw-var.parquet</code>, and <code>dataset-summary.yaml</code> for actual field names.</li>
+<li><code>coalesce</code>, <code>join</code>, <code>template</code>, and <code>conditional</code> fail when referenced source columns are missing.</li>
+</ul>
+<p>Bad <code>origin_index</code> at load time:</p>
+<ul>
+<li><code>FeatureRegistry</code> requires numeric, contiguous <code>origin_index</code> after sorting.</li>
+<li>If this fails, check <code>canonical-var.parquet</code> and the var mapping for <code>origin_index</code>.</li>
+</ul>
+<p>Wrong controls:</p>
+<ul>
+<li>Review <code>control_label_candidates</code> in <code>dataset-summary.yaml</code>.</li>
+<li>Make sure <code>map_control_labels</code> candidates match raw values exactly enough for the configured case sensitivity.</li>
+</ul>
+<p>Wrong gene namespace:</p>
+<ul>
+<li>Confirm whether <code>gene_id</code> is a symbol, Ensembl ID, guide ID, or other feature ID.</li>
+<li>Keep <code>canonical_gene_id</code> consistent across datasets that should share model tokens.</li>
+</ul>
+<p>Loader cannot find canonical parquet files:</p>
+<ul>
+<li>Run <code>canonicalize</code> after writing <code>final-schema.yaml</code>.</li>
+<li>Check topology-specific paths under <code>meta/&lt;dataset_id&gt;/canonical_meta</code> or <code>&lt;dataset_id&gt;/meta/canonical_meta</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
