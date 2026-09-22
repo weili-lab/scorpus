@@ -1,4 +1,21 @@
-# scorpus
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/scorpus_logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/scorpus_logo_light.png">
+  <img src="docs/assets/scorpus_logo_light.png" alt="scorpus" width="440">
+</picture>
+
+**Sparse single-cell corpora — cheap to random-access, easy to compose,
+ready to hand back to AnnData.**
+
+[Documentation](https://weili-lab.github.io/scorpus/) ·
+[Quickstart](https://weili-lab.github.io/scorpus/quickstart/) ·
+[Conversion &amp; composition](docs/composable_corpora.md)
+
+</div>
+
+---
 
 `scorpus` turns single-cell `.h5ad` files into sparse on-disk corpora that are
 cheap to random-access, easy to compose, and ready to hand back to AnnData.
@@ -108,6 +125,17 @@ audited metadata: `inspect → materialize → draft-schema → canonicalize`. M
 users do not need it — `from_h5ad` plus `concat` covers conversion, loading,
 and composition. See [Inspection & materialization](docs/inspect_materialize.md)
 and the [Canonicalization handbook](docs/canonicalization_handbook.md).
+
+## The name
+
+<img src="docs/assets/scorpus_charioteer.png" alt="" width="150" align="right">
+
+Scorpus was the most celebrated charioteer of first-century Rome, winning over
+two thousand races before dying young in the Circus Maximus. The name fits a
+library whose whole job is moving single-cell data quickly — and it is a corpus
+tool, so the pun was irresistible.
+
+<br clear="right">
 
 ## Notes
 
