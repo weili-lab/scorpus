@@ -5,6 +5,8 @@ edit_uri: edit/docs/github-pages-demo/docs/
 
 theme:
   name: material
+  logo: assets/scorpus_mark.png
+  favicon: assets/scorpus_favicon.png
   palette:
     primary: indigo
     accent: indigo

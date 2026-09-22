@@ -1,7 +1,10 @@
-# scorpus
+<p align="center">
+  <img src="assets/scorpus_logo_light.png#only-light" alt="scorpus" width="430">
+  <img src="assets/scorpus_logo.png#only-dark" alt="scorpus" width="430">
+</p>
 
-Sparse single-cell corpora that are cheap to random-access, easy to compose, and
-ready to hand back to AnnData.
+<p align="center"><strong>Sparse single-cell corpora — cheap to random-access,
+easy to compose, ready to hand back to AnnData.</strong></p>
 
 `scorpus` turns `.h5ad` files into sparse on-disk corpora. Conversion is one
 call — no schema, no intermediate artifacts — and composing several datasets
@@ -85,3 +88,14 @@ Most users only need the first. The curated route is documented under
   the Scanpy/RAPIDS boundary
 - [Backend notes](backend_note.md) — storage backend policy and selection
 - [pertTF integration](perttf_loader.md) — where the paired loader now lives
+
+## The name
+
+<img src="assets/scorpus_charioteer.png" alt="" width="150" align="right">
+
+Scorpus was the most celebrated charioteer of first-century Rome, winning over
+two thousand races before dying young in the Circus Maximus. The name fits a
+library whose whole job is moving single-cell data quickly — and it is a corpus
+tool, so the pun was irresistible.
+
+<br clear="right">
