@@ -111,9 +111,23 @@ for batch in build_loader(corpus, seq_len=1024, batch_size=128):
     ...
 ```
 
+To train on pairs of cells (for example controls → perturbed cells of the same cell line),
+describe which pairs are allowed and draw them with `scorpus.pairing`:
+
+```python
+import polars as pl
+from scorpus.pairing import Sampler, cross, make_groups
+
+groups = make_groups(corpus.metadata_index.df, by=["cell_line", "perturbation"])
+is_ctrl = pl.col("perturbation") == "ctrl"
+pairs = cross(groups, on=["cell_line"], source=is_ctrl, target=~is_ctrl)
+Sampler(groups, pairs, n_source=1).sample(step=0)   # [([source row], [target row])]
+```
+
 ## Documentation
 
 - [Conversion and composition](docs/composable_corpora.md) — start here
+- [Pairing source and target cells](docs/pairing.md)
 - [AnnData / Scanpy / RAPIDS handoff](docs/anndata_scanpy_handoff.md)
 - [Architecture](DESIGN.md)
 - [Backend policy](docs/backend_note.md)
