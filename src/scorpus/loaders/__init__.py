@@ -1,5 +1,7 @@
 """Public model-independent corpus loading and sparse processing APIs."""
 
+import importlib
+
 from .expression import (
     AggregateLanceReader,
     AggregateZarrReader,
@@ -14,28 +16,33 @@ from .expression import (
 )
 from .zarr_reading import ZARR_READ_ENGINES, normalize_zarr_read_engine, open_csr_arrays
 from .index import MetadataIndex
-from .adapters import (
-    ExpressionBatchDataset,
-    CorpusRandomBatchSampler,
-    ContextBatchSampler,
-    build_loader,
-    collate_expression_batch,
-)
 from .expression import ExpressionBatch
 from .feature_registry import (
     FeatureRegistry,
-)
-from .gene_token_mapper import (
-    GeneTokenMapper,
 )
 from .corpus_loader import (
     Corpus,
     load_corpus,
 )
 from .composition import concat
-from .sparse_batch import (
-    SparseBatchProcessor,
-)
+
+# These build model input with torch. They are imported on first use, so the rest of scorpus
+# works without torch (install it with ``pip install scorpus[torch]``).
+_TORCH_EXPORTS = {
+    "ExpressionBatchDataset": ".adapters",
+    "CorpusRandomBatchSampler": ".adapters",
+    "ContextBatchSampler": ".adapters",
+    "build_loader": ".adapters",
+    "collate_expression_batch": ".adapters",
+    "GeneTokenMapper": ".gene_token_mapper",
+    "SparseBatchProcessor": ".sparse_batch",
+}
+
+
+def __getattr__(name):
+    if name in _TORCH_EXPORTS:
+        return getattr(importlib.import_module(_TORCH_EXPORTS[name], __name__), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "concat",
