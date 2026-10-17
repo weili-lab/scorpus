@@ -29,7 +29,8 @@ It is built for three jobs:
 ## Install
 
 ```bash
-pip install -e .
+pip install -e .           # conversion, composition, reading, AnnData export
+pip install -e ".[torch]"   # also the torch training loaders (build_loader, SparseBatchProcessor, GeneTokenMapper)
 ```
 
 ## Convert

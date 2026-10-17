@@ -18,13 +18,15 @@ dependencies = [
     "pyarrow>=18",
     "pylance>=0.20",
     "zarr>=3",
-    "torch>=2.2",
     "dask[array]>=2024",
     "PyYAML>=6.0",
     "scipy>=1.14",
 ]
 
 [project.optional-dependencies]
+torch = [
+    "torch>=2.2",
+]
 pca = [
     "scikit-learn>=1.4",
 ]
