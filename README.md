@@ -9,9 +9,9 @@
 **Sparse single-cell corpora — cheap to random-access, easy to compose,
 ready to hand back to AnnData.**
 
-[Documentation](https://weili-lab.github.io/scorpus/) ·
-[Quickstart](https://weili-lab.github.io/scorpus/quickstart/) ·
-[Conversion &amp; composition](docs/composable_corpora.md)
+[Documentation](https://scorpus.readthedocs.io/en/latest/) ·
+[Quickstart](https://scorpus.readthedocs.io/en/latest/quickstart.html) ·
+[Conversion &amp; composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html)
 
 </div>
 
@@ -132,19 +132,26 @@ Sampler(groups, pairs, n_source=1).sample(step=0)   # [([source row], [target ro
 
 ## Documentation
 
-- [Conversion and composition](docs/composable_corpora.md) — start here
-- [Pairing source and target cells](docs/pairing.md)
-- [AnnData / Scanpy / RAPIDS handoff](docs/anndata_scanpy_handoff.md)
-- [Architecture](DESIGN.md)
-- [Backend policy](docs/backend_note.md)
+The full documentation, including installation, tutorials and guides, is at
+**[scorpus.readthedocs.io](https://scorpus.readthedocs.io/en/latest/)**:
+
+- [Installation](https://scorpus.readthedocs.io/en/latest/installation.html) and [quickstart](https://scorpus.readthedocs.io/en/latest/quickstart.html)
+- [Conversion and composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html): start here
+- [Pairing source and target cells](https://scorpus.readthedocs.io/en/latest/pairing.html) and the [pairing walkthrough](https://scorpus.readthedocs.io/en/latest/tutorials/pairing_walkthrough.html)
+- [AnnData / Scanpy / RAPIDS handoff](https://scorpus.readthedocs.io/en/latest/anndata_scanpy_handoff.html)
+- [Architecture](https://scorpus.readthedocs.io/en/latest/design.html) and [backend policy](https://scorpus.readthedocs.io/en/latest/backend_note.html)
+
+The site is built from `docs/` (Sphinx, see `.readthedocs.yaml`); edit the pages
+there.
 
 ### Curated corpus releases (advanced)
 
 A longer reviewed pipeline exists for publishing corpora with harmonized,
 audited metadata: `inspect → materialize → draft-schema → canonicalize`. Most
 users do not need it — `from_h5ad` plus `concat` covers conversion, loading,
-and composition. See [Inspection & materialization](docs/inspect_materialize.md)
-and the [Canonicalization handbook](docs/canonicalization_handbook.md).
+and composition. See the [bash walkthrough](https://scorpus.readthedocs.io/en/latest/bash_demo.html),
+[inspection & materialization](https://scorpus.readthedocs.io/en/latest/inspect_materialize.html) and the
+[canonicalization handbook](https://scorpus.readthedocs.io/en/latest/canonicalization_handbook.html).
 
 ## The name
 

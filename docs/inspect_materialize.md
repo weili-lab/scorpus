@@ -133,7 +133,7 @@ ID that already exists in the corpus index.
 
 Use a CSV input list:
 
-```csv
+```text
 source,dataset_id,inspection_summary
 /path/to/dataset_a.h5ad,dataset_a,./artifacts/review/dataset_a/dataset-summary.yaml
 /path/to/dataset_b.h5ad,dataset_b,./artifacts/review/dataset_b/dataset-summary.yaml
