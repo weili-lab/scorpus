@@ -208,20 +208,14 @@ together or combine per-dataset result frames before calling `add_obs_meta(...)`
 Partial subset metadata is rejected because it would leave the corpus in a
 half-annotated runtime state.
 
-After adding metadata, downstream loaders can use the new columns for sampling or
-pass-through metadata:
+After adding metadata, the new columns can define groups for sampling, for example
+batches that each hold cells of one cluster and perturbation:
 
 ```python
-from scorpus.loaders import build_loader
+from scorpus.pairing import cells, make_groups
 
-loader = build_loader(
-    corpus,
-    sampler="context",
-    batch_size=128,
-    seq_len=1024,
-    context_columns=["leiden", "perturb_label"],
-    metadata_columns=["leiden", "doublet_score"],
-)
+groups = make_groups(corpus.metadata_index.df, by=["leiden", "perturb_label"])
+batches = cells(groups, epoch=0, batch_size=128, same_group=True)
 ```
 
 ## Corpus-native pp helpers

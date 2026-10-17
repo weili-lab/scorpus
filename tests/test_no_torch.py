@@ -17,19 +17,7 @@ sys.meta_path.insert(0, NoTorch())
 def test_scorpus_imports_without_torch():
     code = NO_TORCH + (
         "import scorpus, scorpus.cli, scorpus.pp, scorpus.pairing\n"
-        "from scorpus.loaders import MetadataIndex, ExpressionReader, load_corpus, concat\n"
+        "from scorpus.loaders import *\n"
         "assert 'torch' not in sys.modules\n"
-    )
-    subprocess.run([sys.executable, "-c", code], check=True)
-
-
-def test_torch_loaders_need_torch():
-    code = NO_TORCH + (
-        "try:\n"
-        "    from scorpus.loaders import build_loader\n"
-        "except ModuleNotFoundError:\n"
-        "    pass\n"
-        "else:\n"
-        "    raise AssertionError('build_loader imported without torch')\n"
     )
     subprocess.run([sys.executable, "-c", code], check=True)

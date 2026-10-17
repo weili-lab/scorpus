@@ -1,7 +1,8 @@
 # pertTF integration
 
-The paired loader, perturbation sampler, and model-specific vocabulary adapter
-now live in pertTF: `perttf.model.corpus_adapter`.
+The paired loader, the gene token vocabulary and the gene sampling that turns a cell into
+a fixed-length gene sequence live in pertTF: `perttf.model.corpus_adapter`. Which cells are
+paired is described with `scorpus.pairing` (see [`pairing.md`](pairing.md)).
 
 Use `perttf.model.corpus_data.produce_corpus_datasets` for corpus-native training
 and validation, including a shared unified-encoder perturbation mapping.

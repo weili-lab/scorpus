@@ -210,12 +210,14 @@ the required metadata mapping is supplied.
 
 The repo has three main downstream usage paths.
 
-The generic sparse loader uses `build_loader(...)` and returns sparse batches
-with dataset-aware feature mapping.
+Model training reads rows chosen with `scorpus.pairing` (`cells` for single cells,
+`Sampler` for pairs) through the expression reader, sparse or as dense counts on the
+corpus gene axis (`dense_counts`). Tokenization, gene sampling and tensors belong to
+the model package.
 
-The pertTF-owned adapter uses `PertTFPairedBatchLoader` to form source/target
-paired batches with configurable labels, control definitions, row pools, and
-pairing groups. See `docs/perttf_loader.md` and the pertTF worktree's tutorials.
+The pertTF-owned adapter uses `PertTFPairedBatchLoader` to turn pairs from
+`scorpus.pairing` into source/target batches, with its own token vocabulary and
+gene sampling. See `docs/perttf_loader.md` and the pertTF worktree's tutorials.
 
 The AnnData/Scanpy/RAPIDS path uses `corpus.to_anndata(...)` for eager
 counts-only export of whole selected dataset(s), or `corpus.to_anndata_lazy(...)`
