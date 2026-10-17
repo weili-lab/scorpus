@@ -27,10 +27,12 @@ dependencies = [
 pca = [
     "scikit-learn>=1.4",
 ]
+# Sphinx toolchain used to build docs/ on ReadTheDocs (no autodoc, so scorpus's
+# own imports are not exercised by the doc build).
 docs = [
-    "mkdocs-material>=9",
-    "mkdocs-jupyter>=0.25",
-    "pymdown-extensions>=10",
+    "sphinx>=7.2",
+    "myst-nb>=1.0",
+    "furo",
 ]
 demo = [
     "scanpy>=1.10",
@@ -41,7 +43,7 @@ demo = [
 
 [project.urls]
 Homepage = "https://github.com/weili-lab/scorpus"
-Documentation = "https://weili-lab.github.io/scorpus/"
+Documentation = "https://scorpus.readthedocs.io/en/latest/"
 Repository = "https://github.com/weili-lab/scorpus"
 
 [tool.setuptools.packages.find]
