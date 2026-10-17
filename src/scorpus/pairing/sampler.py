@@ -93,6 +93,9 @@ class Sampler:
             self._group_of_row[rows] = g
 
         self.uses_link_table = bool(np.any(self.pair_link == "table"))
+        # One cell per side, no bundles, no link table: sampling can be done with array operations.
+        self.single_cells = (self.single_pair_bundles and self.n_source == 1 and self.n_target == 1
+                             and not self.uses_link_table)
         if self.uses_link_table:
             link_table = link_table if isinstance(link_table, pl.DataFrame) else pl.from_pandas(link_table)
             self._linked = {
@@ -115,7 +118,7 @@ class Sampler:
         """``n_bundles`` bundles for one batch, drawn in one call; reproducible from (seed, step)."""
         rng = np.random.default_rng([seed, step])
         bundles = self._draw_bundles(rng, n_bundles)
-        if self.single_pair_bundles and self.n_source == 1 and self.n_target == 1 and not self.uses_link_table:
+        if self.single_cells:
             # Single cells on both sides: pick every source and target cell with one array operation each.
             s, t = self.pair_source[bundles], self.pair_target[bundles]
             source_rows = self._flat[self._start[s] + rng.integers(self._count[s])]
@@ -138,6 +141,9 @@ class Sampler:
         bundle that contains its group on the covered side, by bundle weight, and the other
         groups' cells are drawn as in step mode.
         """
+        if self.single_cells:
+            source_rows, target_rows = self._epoch_single(epoch, seed, cover)
+            return [[([int(i)], [int(j)])] for i, j in zip(source_rows, target_rows)]
         rng = np.random.default_rng([seed, epoch])
         covered_of_pair = self.pair_source if cover == "source" else self.pair_target
         size = self.n_source if cover == "source" else self.n_target
@@ -157,6 +163,56 @@ class Sampler:
             for start, b in zip(starts, chosen):
                 samples.append(self._realize(b, rng, cover, fixed=(g, rows[start:start + chunk])))
         return [samples[i] for i in rng.permutation(len(samples))]
+
+    def epoch_rows(self, epoch: int, seed: int = 0, cover: str = "source",
+                   drop_last: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        """The cell pairs of ``epoch()``, in order, as a source-row array and a target-row array.
+
+        A set sample adds its source cells and its target cells side by side, so the two arrays
+        line up only when each sample has as many source as target cells. With single cells this
+        skips building the samples.
+        """
+        if self.single_cells:
+            return self._epoch_single(epoch, seed, cover)
+        source_rows, target_rows = [], []
+        for sample in self.epoch(epoch, seed, cover, drop_last):
+            for source, target in sample:
+                source_rows.extend(source)
+                target_rows.extend(target)
+        return np.asarray(source_rows, dtype=np.int64), np.asarray(target_rows, dtype=np.int64)
+
+    def _epoch_single(self, epoch: int, seed: int, cover: str) -> tuple[np.ndarray, np.ndarray]:
+        """``epoch()`` for single cells, one array operation per step instead of one call per cell."""
+        rng = np.random.default_rng([seed, epoch])
+        covered_of_pair, other_of_pair = ((self.pair_source, self.pair_target) if cover == "source"
+                                          else (self.pair_target, self.pair_source))
+        n_groups = len(self._count)
+
+        # Pair rows sorted by covered group, with a running total of their weights: the rows of
+        # group g fill the stretch [weight_before[g], weight_before[g] + weight_of[g]).
+        order = np.argsort(covered_of_pair, kind="stable")
+        cum = np.cumsum(self.bundle_weight[order])
+        row_end = np.searchsorted(covered_of_pair[order], np.arange(n_groups), side="right")
+        row_start = np.searchsorted(covered_of_pair[order], np.arange(n_groups), side="left")
+        cum0 = np.concatenate([[0.0], cum])
+        weight_before = cum0[row_start]
+        weight_of = cum0[row_end] - weight_before
+
+        # Every cell of every covered group once, in shuffled order.
+        is_covered = row_end > row_start
+        cells = rng.permutation(self._flat[np.repeat(is_covered, self._count)])
+        g = self._group_of_row[cells]
+
+        # A pair row for every cell by weight: a random point in its group's stretch, then one
+        # binary search for all cells. Rounding can put the point on the stretch end; clip it back.
+        point = weight_before[g] + rng.random(len(cells)) * weight_of[g]
+        p = order[np.minimum(np.searchsorted(cum, point, side="right"), row_end[g] - 1)]
+
+        # A random partner cell of the other group; "self" rows keep the cell itself.
+        other = other_of_pair[p]
+        partner = self._flat[self._start[other] + rng.integers(self._count[other])]
+        partner = np.where((self.pair_link == "self")[p], cells, partner)
+        return (cells, partner) if cover == "source" else (partner, cells)
 
     # ---- shared ----------------------------------------------------------------------------
 

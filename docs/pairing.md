@@ -153,6 +153,9 @@ Inside one sample, a group used by several rows gives the same cells to all of t
 - `epoch(epoch, seed=0, cover="source", drop_last=False)`: every cell of every covered group
   once. Each group is cut into chunks of `n_source` (or `n_target`) cells; each chunk takes one
   bundle that contains its group, by weight. `drop_last` leaves out each group's short last chunk.
+- `epoch_rows(...)`: the cell pairs of `epoch()` as two arrays, source rows and target rows.
+  With single cells and no bundles or link table it is fully vectorized, which matters for
+  tens of millions of cells.
 
 The sampler only returns rows. Batching, padding and what a pair means for training (for example
 which perturbation label to use) are up to the model, which reads the metadata of those rows.
@@ -171,3 +174,4 @@ many links.
 | one step, size 64 | 32 µs |
 | batch of 64 single-cell pairs (`sample_batch`) | 0.05 ms |
 | epoch, size 1 (100k samples) | 0.96 s |
+| `epoch_rows`, single cells (1M cells, 18,000 pairs) | 0.16 s |

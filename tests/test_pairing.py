@@ -262,3 +262,38 @@ def test_epoch_drop_last():
     sampler = Sampler(groups, cross(groups, source=is_ctrl, target=~is_ctrl), n_source=4)
     assert sorted(len(s) for ((s, t),) in sampler.epoch(0)) == [2, 4, 4]
     assert sorted(len(s) for ((s, t),) in sampler.epoch(0, drop_last=True)) == [4, 4]
+
+
+def test_single_cell_epoch_rows():
+    """The array epoch: every covered cell once, partners in the allowed group, by weight."""
+    table = pd.DataFrame({
+        "cell_line": ["K562"] * 4000 + ["RPE1"] * 30,
+        "perturbation": ["ctrl"] * 2000 + ["KLF1"] * 1000 + ["GATA1"] * 1000 + ["ctrl"] * 10 + ["KLF1"] * 20,
+    })
+    groups = make_groups(table, by=["cell_line", "perturbation"])
+    pairs = perttf_training_pairs(groups).with_columns(weight=pl.when(tgt.perturbation == "GATA1").then(3.0).otherwise(1.0))
+    sampler = Sampler(groups, pairs, links="link", weight="weight")
+    assert sampler.single_cells
+
+    s, t = sampler.epoch_rows(0)
+    assert sorted(s.tolist()) == list(range(len(table)))
+    source, target = table.iloc[s].reset_index(drop=True), table.iloc[t].reset_index(drop=True)
+    is_ctrl_source = (source["perturbation"] == "ctrl").to_numpy()
+    assert (source["cell_line"] == target["cell_line"]).all()
+    assert (s[~is_ctrl_source] == t[~is_ctrl_source]).all()
+    assert (target["perturbation"][is_ctrl_source] != "ctrl").all()
+    k562_ctrl = is_ctrl_source & (source["cell_line"] == "K562").to_numpy()
+    assert abs((target["perturbation"][k562_ctrl] == "GATA1").mean() - 0.75) < 0.05
+
+    assert [(i, j) for ((i,), (j,)), in sampler.epoch(0)] == list(zip(s.tolist(), t.tolist()))
+    assert not np.array_equal(sampler.epoch_rows(1)[0], s)
+
+
+def test_epoch_rows_for_sets():
+    table = cell_lines_table()
+    groups = make_groups(table, by=["cell_line", "perturbation"])
+    sampler = Sampler(groups, perttf_training_pairs(groups), n_source=2, links="link")
+    assert not sampler.single_cells
+    s, t = sampler.epoch_rows(0)
+    flat = [(i, j) for sample in sampler.epoch(0) for (i,), (j,) in sample]
+    assert list(zip(s.tolist(), t.tolist())) == flat
