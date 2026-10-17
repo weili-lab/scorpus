@@ -5,11 +5,13 @@
    ordinary polars filters and ``combine``.
 3. ``Sampler``: draws cell rows from the allowed pairs, in step or epoch mode.
 
+``cells`` draws every cell once without pairs, optionally in batches of one group.
+
 The sampler returns row positions only; batching, padding and what a pair means for training
 are left to the model. This package does not use the rest of scorpus.
 """
 
 from .groups import Groups, combine, cross, describe, links_from, make_groups, src, tgt
-from .sampler import Sampler
+from .sampler import Sampler, cells
 
-__all__ = ["Groups", "Sampler", "combine", "cross", "describe", "links_from", "make_groups", "src", "tgt"]
+__all__ = ["Groups", "Sampler", "cells", "combine", "cross", "describe", "links_from", "make_groups", "src", "tgt"]

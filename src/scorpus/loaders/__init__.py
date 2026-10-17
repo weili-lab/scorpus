@@ -1,7 +1,5 @@
 """Public model-independent corpus loading and sparse processing APIs."""
 
-import importlib
-
 from .expression import (
     AggregateLanceReader,
     AggregateZarrReader,
@@ -25,24 +23,7 @@ from .corpus_loader import (
     load_corpus,
 )
 from .composition import concat
-
-# These build model input with torch. They are imported on first use, so the rest of scorpus
-# works without torch (install it with ``pip install scorpus[torch]``).
-_TORCH_EXPORTS = {
-    "ExpressionBatchDataset": ".adapters",
-    "CorpusRandomBatchSampler": ".adapters",
-    "ContextBatchSampler": ".adapters",
-    "build_loader": ".adapters",
-    "collate_expression_batch": ".adapters",
-    "GeneTokenMapper": ".gene_token_mapper",
-    "SparseBatchProcessor": ".sparse_batch",
-}
-
-
-def __getattr__(name):
-    if name in _TORCH_EXPORTS:
-        return getattr(importlib.import_module(_TORCH_EXPORTS[name], __name__), name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+from .dense import dense_counts
 
 __all__ = [
     "concat",
@@ -64,18 +45,9 @@ __all__ = [
     "open_csr_arrays",
     # Phase 3 — Core types
     "ExpressionBatch",
-    # Phase 3 — Samplers (MetadataIndex-backed)
-    "CorpusRandomBatchSampler",
-    "ContextBatchSampler",
-    # Phase 3 — Data loaders
-    "ExpressionBatchDataset",
-    "build_loader",
-    "collate_expression_batch",
+    "dense_counts",
     # Phase 2 — Feature Registry
     "FeatureRegistry",
-    "GeneTokenMapper",
-    # Phase 3 — sparse batch processing
-    "SparseBatchProcessor",
     # Phase N — Corpus loader factory
     "Corpus",
     "load_corpus",

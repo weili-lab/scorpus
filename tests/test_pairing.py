@@ -3,7 +3,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from scorpus.pairing import Sampler, combine, cross, links_from, make_groups, src, tgt
+from scorpus.pairing import Sampler, cells, combine, cross, links_from, make_groups, src, tgt
 
 is_ctrl = pl.col("perturbation") == "ctrl"
 
@@ -341,3 +341,22 @@ def test_weighted_links():
     sets = Sampler(groups, pairs, n_source=3, links=links)
     from_0 = [t for step in range(2000) for (s,), (t,) in sets.sample(step) if s == 0]
     assert abs(np.mean(np.array(from_0) == 3) - 0.7) < 0.04
+
+
+def test_cells_without_pairs():
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 7 + ["A"] * 5})
+    groups = make_groups(table, by=["perturbation"])
+    rows = cells(groups, epoch=0)
+    assert sorted(rows.tolist()) == list(range(12))
+    assert not np.array_equal(rows, cells(groups, epoch=1))
+    np.testing.assert_array_equal(rows, cells(groups, epoch=0))
+
+    batches = cells(groups, epoch=0, batch_size=5)
+    assert [len(b) for b in batches] == [5, 5, 2]
+    assert [len(b) for b in cells(groups, epoch=0, batch_size=5, drop_last=True)] == [5, 5]
+
+    same = cells(groups, epoch=0, batch_size=3, same_group=True)
+    assert sorted(len(b) for b in same) == [1, 2, 3, 3, 3]
+    assert all(table.iloc[b]["perturbation"].nunique() == 1 for b in same)
+    assert sorted(np.concatenate(same).tolist()) == list(range(12))
+    assert sorted(len(b) for b in cells(groups, epoch=0, batch_size=3, same_group=True, drop_last=True)) == [3, 3, 3]

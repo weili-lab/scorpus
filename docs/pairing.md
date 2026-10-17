@@ -182,6 +182,22 @@ Output is a list of (source rows, target rows) tuples: one tuple per pair row fo
 own `n_source` / `n_target` cells, so a bundle of two dose rows with cell links yields twice as
 many links.
 
+## Without pairs
+
+`cells(groups, epoch=0, seed=0, batch_size=None, same_group=False, drop_last=False)` uses
+every cell once per epoch, shuffled, for training on single cells. With `batch_size` it
+returns a list of batches; with `same_group=True` every batch holds cells of one group
+(for example one dataset and cell type, or a set of cells as one input):
+
+```python
+groups = make_groups(metadata, by=["dataset_id", "cell_type"])
+for rows in cells(groups, epoch=0, batch_size=256, same_group=True):
+    ...
+```
+
+Read the rows with `corpus.expression_reader.read_expression_flat(rows.tolist())`, and use
+`scorpus.loaders.dense_counts` for dense counts on the corpus gene axis.
+
 ## Speed (1M cells, 10,000 pairs)
 
 | | time |

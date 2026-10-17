@@ -8,25 +8,14 @@ import numpy as np
 import polars as pl
 import pyarrow as pa
 import pytest
-import torch
 import yaml
-from torch.utils.data import DataLoader
 
-from scorpus.loaders import (
-    CorpusRandomBatchSampler,
-    ContextBatchSampler,
-    ExpressionBatchDataset,
-    GeneTokenMapper,
-    build_loader,
-    collate_expression_batch,
-)
 from scorpus.loaders.corpus_loader import Corpus, load_corpus
 from scorpus.loaders.zarr_reading import open_csr_arrays
 from scorpus.loaders.validation import validate_corpus_structure
 
 
 N_GENES = 8
-LOADER_SEQ_LEN = 4
 
 DATASETS = (
     {"dataset_id": "mock_00", "dataset_index": 0, "global_start": 0, "cell_count": 4},
@@ -206,23 +195,6 @@ def _build_federated_lance_corpus(root: Path) -> None:
             root / item["dataset_id"] / "matrix" / f"{item['dataset_id']}.lance",
             rows,
         )
-
-
-def _assert_processed_batch(batch: dict[str, Any], *, batch_size: int) -> None:
-    assert batch["batch_size"] == batch_size
-    assert batch["seq_len"] == LOADER_SEQ_LEN
-    for key in (
-        "sampled_gene_ids",
-        "sampled_counts",
-        "valid_mask",
-        "exact_match_mask",
-        "dataset_index",
-        "global_row_index",
-    ):
-        assert isinstance(batch[key], torch.Tensor)
-    assert "row_offsets" not in batch
-    assert "expressed_gene_indices" not in batch
-    assert "expression_counts" not in batch
 
 
 def test_load_corpus_builds_components_without_runtime_loader_state(tmp_path: Path) -> None:
@@ -558,156 +530,6 @@ def test_validate_corpus_structure_rejects_bad_ranges(tmp_path: Path) -> None:
 
     with pytest.raises(AssertionError, match="global ranges"):
         validate_corpus_structure(tmp_path)
-
-
-def test_expression_dataset_is_expression_only(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-    dataset = ExpressionBatchDataset(corpus.expression_reader, total_rows=len(corpus.metadata_index))
-
-    raw = dataset.__getitems__([0, 4, 8])[0]
-    assert raw.batch_size == 3
-    np.testing.assert_array_equal(raw.global_row_index, [0, 4, 8])
-
-    sampler = CorpusRandomBatchSampler(
-        metadata_index=corpus.metadata_index,
-        batch_size=3,
-        drop_last=False,
-        seed=5,
-    )
-    batch = next(
-        iter(
-            DataLoader(
-                dataset,
-                batch_sampler=sampler,
-                collate_fn=collate_expression_batch,
-                num_workers=0,
-            )
-        )
-    )
-    assert isinstance(batch["global_row_index"], torch.Tensor)
-    assert "dataset_index" not in batch
-    assert "size_factor" not in batch
-
-
-def test_build_loader_attaches_metadata_from_metadata_index(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-
-    batch = next(
-        build_loader(
-            corpus,
-            batch_size=3,
-            seq_len=LOADER_SEQ_LEN,
-            seed=2,
-            device="cpu",
-            metadata_columns=["perturb_label", "size_factor"],
-        )
-    )
-
-    _assert_processed_batch(batch, batch_size=3)
-    expected = corpus.take_metadata(
-        batch["global_row_index"].cpu().numpy(),
-        columns=["dataset_index", "size_factor", "perturb_label"],
-    )
-    np.testing.assert_array_equal(batch["dataset_index"].cpu().numpy(), expected["dataset_index"])
-    np.testing.assert_allclose(batch["size_factor"].cpu().numpy(), expected["size_factor"])
-    assert batch["meta_columns"]["perturb_label"] == expected["perturb_label"]
-    np.testing.assert_allclose(batch["meta_columns"]["size_factor"], expected["size_factor"])
-
-
-def test_build_loader_can_exclude_genes_missing_from_model_tokenizer(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-    tokenizer_stoi = {
-        "<pad>": 0,
-        "<cls>": 1,
-        "<unk>": 2,
-        **{f"GENE{idx:05d}": 100 + idx for idx in range(4)},
-    }
-    mapper = GeneTokenMapper.from_tokenizer_stoi(corpus.feature_registry, tokenizer_stoi)
-
-    batch = next(
-        build_loader(
-            corpus,
-            batch_size=3,
-            seq_len=4,
-            seed=2,
-            device="cpu",
-            gene_token_mapper=mapper,
-            missing_token_policy="exclude",
-        )
-    )
-
-    assert "gene_ids" in batch
-    assert "gene_token_mask" in batch
-    assert torch.all(batch["sampled_gene_ids"] < 4)
-    assert torch.all(batch["gene_token_mask"])
-    torch.testing.assert_close(
-        batch["gene_ids"],
-        batch["sampled_gene_ids"] + 100,
-    )
-
-
-def test_build_loader_respects_context_sampler_and_row_indices(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-
-    batch = next(
-        build_loader(
-            corpus,
-            sampler="context",
-            context_columns=("dataset_id",),
-            row_indices=[4, 5, 6],
-            batch_size=5,
-            drop_last=False,
-            shuffle=False,
-            seq_len=LOADER_SEQ_LEN,
-            device="cpu",
-        )
-    )
-
-    _assert_processed_batch(batch, batch_size=3)
-    np.testing.assert_array_equal(batch["global_row_index"].cpu().numpy(), [4, 5, 6])
-    np.testing.assert_array_equal(batch["dataset_index"].cpu().numpy(), [1, 1, 1])
-
-
-def test_build_loader_context_sampler_keeps_context_group(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-
-    batch = next(
-        build_loader(
-            corpus,
-            sampler="context",
-            context_columns=("dataset_id", "perturb_label"),
-            row_indices=[4, 5, 6, 7, 8],
-            batch_size=2,
-            seq_len=LOADER_SEQ_LEN,
-            device="cpu",
-            metadata_columns=["perturb_label"],
-        )
-    )
-
-    _assert_processed_batch(batch, batch_size=2)
-    assert len(set(batch["meta_columns"]["perturb_label"])) == 1
-
-
-def test_context_sampler_exhausts_each_context_group(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-
-    sampler = ContextBatchSampler(
-        metadata_index=corpus.metadata_index,
-        context_columns=("dataset_id", "perturb_label"),
-        row_indices=[4, 5, 6, 7, 8],
-        batch_size=2,
-        shuffle=False,
-        drop_last=False,
-    )
-
-    assert list(sampler) == [[4, 6], [8], [5, 7]]
-    assert len(sampler) == 3
 
 
 def test_load_corpus_federated_reader_uses_dataset_files(tmp_path: Path) -> None:

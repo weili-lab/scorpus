@@ -29,8 +29,7 @@ It is built for three jobs:
 ## Install
 
 ```bash
-pip install -e .           # conversion, composition, reading, AnnData export
-pip install -e ".[torch]"   # also the torch training loaders (build_loader, SparseBatchProcessor, GeneTokenMapper)
+pip install -e .           # conversion, composition, reading, pairing, AnnData export
 ```
 
 ## Convert
@@ -105,11 +104,17 @@ clustering. Results can be joined back with `corpus.add_obs_meta(...)`.
 
 ## Train
 
-```python
-from scorpus.loaders import build_loader
+scorpus gives rows and expression; tokenization, gene sampling and tensors belong to the model.
+Draw every cell once per epoch, read a batch sparse, or dense on the corpus gene axis:
 
-for batch in build_loader(corpus, seq_len=1024, batch_size=128):
-    ...
+```python
+from scorpus.loaders import dense_counts
+from scorpus.pairing import cells, make_groups
+
+groups = make_groups(corpus.metadata_index.df, by=["dataset_id", "cell_type"])
+for rows in cells(groups, epoch=0, batch_size=128):            # same_group=True: one group per batch
+    batch = corpus.expression_reader.read_expression_flat(rows.tolist())   # sparse, per-dataset genes
+    counts, measured = dense_counts(corpus, batch)             # cells x genes, and which were measured
 ```
 
 To train on pairs of cells (for example controls → perturbed cells of the same cell line),

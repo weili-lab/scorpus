@@ -277,6 +277,29 @@ class Sampler:
         return rows[rng.choice(len(rows), n, replace=False)]
 
 
+def cells(groups: Groups, epoch: int = 0, seed: int = 0, batch_size: int | None = None,
+          same_group: bool = False, drop_last: bool = False):
+    """Every cell of every group once, in shuffled order, for training without pairs.
+
+    Returns one row array, or with ``batch_size`` a list of row arrays (batches). With
+    ``same_group`` every batch holds cells of one group only (for example one dataset and cell
+    type, or a set of cells as one input) and the batches are shuffled across groups.
+    ``drop_last`` leaves out short batches: the last one, or with ``same_group`` each group's
+    last. Reproducible from (seed, epoch).
+    """
+    rng = np.random.default_rng([seed, epoch])
+    if same_group:
+        batches = [b for rows in groups.rows for b in _cut(rng.permutation(rows), batch_size, drop_last)]
+        return [batches[i] for i in rng.permutation(len(batches))]
+    rows = rng.permutation(np.concatenate(groups.rows))
+    return rows if batch_size is None else _cut(rows, batch_size, drop_last)
+
+
+def _cut(rows: np.ndarray, size: int, drop_last: bool) -> list[np.ndarray]:
+    stop = len(rows) - size + 1 if drop_last else len(rows)
+    return [rows[start:start + size] for start in range(0, stop, size)]
+
+
 class _Links:
     """A link table sorted by (cell, partner group): a cell's links into one group are one block."""
 

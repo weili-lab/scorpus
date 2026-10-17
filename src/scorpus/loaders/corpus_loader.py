@@ -950,8 +950,8 @@ def load_corpus(
     Returns
     -------
     Corpus
-        Fully-constructed corpus components ready for ``build_loader(...)`` or
-        direct expression-reader / ``take_metadata(...)`` inspection.
+        Fully-constructed corpus components ready for expression reads
+        (``expression_reader``, ``dense_counts``) and ``take_metadata(...)``.
 
     Raises
     ------
