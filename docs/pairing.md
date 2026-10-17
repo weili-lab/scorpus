@@ -122,6 +122,23 @@ ot_links = links_from(groups, pairs, lambda s, t: linear_sum_assignment(cdist(pc
 Sampler(groups, pairs, links=ot_links)
 ```
 
+**Weighted links (for example a soft OT plan).** A `weight` column in the link table makes a
+cell pick among its links into the chosen target group in proportion to the weights. `match` can
+return `(i, j, w)`; `top_k` keeps a link only if it is among the k heaviest of its source cell
+or of its target cell, so every cell keeps links whichever side is covered:
+
+```python
+def ot_plan(s, t):                      # one transport plan per allowed pair of groups
+    P = ot.sinkhorn(ot.unif(len(s)), ot.unif(len(t)), ot.dist(pca[s], pca[t]), reg=0.05)
+    i, j = np.nonzero(P)
+    return i, j, P[i, j]                # raw plan mass; the sampler normalizes per cell
+
+ot_links = links_from(groups, pairs, ot_plan, top_k=10)   # columns source_row, target_row, weight
+```
+
+A cell with no link into the chosen target group is left out of that sample (or epoch); there
+is no fallback.
+
 **Different links per rule (pertTF's default).** Put the link kind in a pair-table column:
 
 ```python
@@ -141,7 +158,7 @@ Sampler(groups, pairs, links="link")
 | `n_source`, `n_target` | Cells per source / target group in a sample: an integer or `"all"`. `n_target` defaults to `n_source`. |
 | `bundle_by` | Pair-table columns. Rows with equal values are drawn together as one sample. Default: each row alone. |
 | `links` | `"none"`: sets. `"random"`: each covered cell gets one random partner cell. `"self"`: each cell is its own partner (source group = target group). A table (`source_row`, `target_row`): partners from that table. Or the name of a pair-table column giving one of `"none"`, `"random"`, `"self"`, `"table"` per row. |
-| `link_table` | The table used by `"table"` rows (see `links_from`). |
+| `link_table` | The table used by `"table"` rows (see `links_from`), with an optional `weight` column. |
 | `weight` | A pair-table column. A bundle's weight is the sum of its rows. Default: uniform. |
 | `drop_small` | Leave out pair rows whose source or target group has fewer than `n_source` / `n_target` cells. Without it, such a group gives all its cells; padding is up to the model. |
 
@@ -154,8 +171,8 @@ Inside one sample, a group used by several rows gives the same cells to all of t
   once. Each group is cut into chunks of `n_source` (or `n_target`) cells; each chunk takes one
   bundle that contains its group, by weight. `drop_last` leaves out each group's short last chunk.
 - `epoch_rows(...)`: the cell pairs of `epoch()` as two arrays, source rows and target rows.
-  With single cells and no bundles or link table it is fully vectorized, which matters for
-  tens of millions of cells.
+  With single cells and no bundles it is fully vectorized, link tables included, which matters
+  for tens of millions of cells.
 
 The sampler only returns rows. Batching, padding and what a pair means for training (for example
 which perturbation label to use) are up to the model, which reads the metadata of those rows.
@@ -175,3 +192,5 @@ many links.
 | batch of 64 single-cell pairs (`sample_batch`) | 0.05 ms |
 | epoch, size 1 (100k samples) | 0.96 s |
 | `epoch_rows`, single cells (1M cells, 18,000 pairs) | 0.16 s |
+| `epoch_rows`, single cells with 9M weighted links on 9,000 of the pairs | 0.4 s (0.9 s the first time, building the link index) |
+| `links_from` for those 9M links with `top_k=10` | 2.0 s |

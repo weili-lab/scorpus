@@ -227,7 +227,7 @@ def test_links_from_and_mixed_links():
     # stand-in for an OT assignment: the k-th control cell is linked to the k-th target cell
     links = links_from(groups, ctrl_to_pert, lambda s, t: (np.arange(min(len(s), len(t))),) * 2)
     assert links.height == 3 * ctrl_to_pert.height
-    for s, t in links.iter_rows():
+    for s, t in links.select("source_row", "target_row").iter_rows():
         assert table.iloc[s]["perturbation"] == "ctrl" and table.iloc[t]["perturbation"] != "ctrl"
         assert table.iloc[s]["cell_line"] == table.iloc[t]["cell_line"]
 
@@ -235,7 +235,7 @@ def test_links_from_and_mixed_links():
         ctrl_to_pert.with_columns(link=pl.lit("table")),
         cross(groups, on=["cell_line", "perturbation"], source=~is_ctrl).with_columns(link=pl.lit("self")),
     )
-    linked = set(links.iter_rows())
+    linked = set(links.select("source_row", "target_row").iter_rows())
     sampler = Sampler(groups, pairs, n_source=3, links="link", link_table=links)
     for step in range(100):
         for (s,), (t,) in sampler.sample(step):
@@ -297,3 +297,47 @@ def test_epoch_rows_for_sets():
     s, t = sampler.epoch_rows(0)
     flat = [(i, j) for sample in sampler.epoch(0) for (i,), (j,) in sample]
     assert list(zip(s.tolist(), t.tolist())) == flat
+
+
+def test_links_from_top_k():
+    """A transport plan's entries as weighted links; top_k keeps every cell's heaviest links."""
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 4 + ["A"] * 3})
+    groups = make_groups(table, by=["perturbation"])
+    pairs = cross(groups, source=is_ctrl, target=~is_ctrl)
+    plan = np.array([[5, 1, 0.5], [4, 2, 0.1], [3, 2.5, 0.2], [6, 0.3, 0.4]])
+
+    def match(s, t):
+        i, j = np.nonzero(plan)
+        return i, j, plan[i, j]
+
+    links = links_from(groups, pairs, match, top_k=1)
+    got = {(s, t): w for s, t, w in links.iter_rows()}
+    # heaviest per control (rows 0-3): all go to A cell 4; heaviest per A cell: 3->4, 2->5, 0->6
+    assert got == {(0, 4): 5, (1, 4): 4, (2, 4): 3, (3, 4): 6, (2, 5): 2.5, (0, 6): 0.5}
+    assert links_from(groups, pairs, match).height == plan.size
+
+
+def test_weighted_links():
+    """A cell picks among its links into the partner group by weight; a cell without links is skipped."""
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 3 + ["A"] * 3})
+    groups = make_groups(table, by=["perturbation"])
+    pairs = cross(groups, source=is_ctrl, target=~is_ctrl)
+    links = pl.DataFrame({"source_row": [0, 0, 1], "target_row": [3, 4, 5], "weight": [0.7, 0.3, 1.0]})
+    sampler = Sampler(groups, pairs, links=links)
+    assert sampler.single_cells
+
+    batch = [pair for sample in sampler.sample_batch(step=0, n_bundles=6000) for pair in sample]
+    from_0 = [t for (s,), (t,) in batch if s == 0]
+    assert abs(np.mean(np.array(from_0) == 3) - 0.7) < 0.03
+    assert {t for (s,), (t,) in batch if s == 1} == {5}
+    assert {s for (s,), _ in batch} == {0, 1}  # control 2 has no link
+
+    s, t = sampler.epoch_rows(0)
+    assert sorted(s.tolist()) == [0, 1]
+    s, t = sampler.epoch_rows(0, cover="target")
+    assert sorted(zip(t.tolist(), s.tolist())) == [(3, 0), (4, 0), (5, 1)]
+
+    # the per-cell path (sets of covered cells) picks by the same weights
+    sets = Sampler(groups, pairs, n_source=3, links=links)
+    from_0 = [t for step in range(2000) for (s,), (t,) in sets.sample(step) if s == 0]
+    assert abs(np.mean(np.array(from_0) == 3) - 0.7) < 0.04
