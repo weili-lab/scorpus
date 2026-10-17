@@ -77,21 +77,46 @@ def combine(*tables: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def links_from(groups: Groups, pairs: pl.DataFrame, match) -> pl.DataFrame:
+def links_from(groups: Groups, pairs: pl.DataFrame, match, top_k: int | None = None) -> pl.DataFrame:
     """Cell links computed inside every allowed (source group, target group), for ``Sampler``.
 
     ``match(source_rows, target_rows)`` gets the cells of the two groups and returns two
-    equal-length position arrays ``(i, j)``: ``source_rows[i[k]]`` is linked to ``target_rows[j[k]]``.
+    equal-length position arrays ``(i, j)``, or three with a weight ``(i, j, w)``:
+    ``source_rows[i[k]]`` is linked to ``target_rows[j[k]]`` with weight ``w[k]`` (1 if not given).
     For example an optimal transport assignment on PCA coordinates:
-    ``lambda s, t: linear_sum_assignment(cdist(pca[s], pca[t]))``.
+    ``lambda s, t: linear_sum_assignment(cdist(pca[s], pca[t]))``, or the entries of a transport
+    plan ``P``: ``i, j = np.nonzero(P)`` and ``w = P[i, j]``.
+
+    top_k: keep a link only if it is among the k heaviest links of its source cell or of its
+    target cell, so every cell keeps its best links whichever side the sampler covers.
     """
-    source_rows, target_rows = [], []
+    source_rows, target_rows, weights = [], [], []
     for s, t in pairs.select("source_group", "target_group").iter_rows():
         rows_s, rows_t = groups.rows[s], groups.rows[t]
-        i, j = match(rows_s, rows_t)
-        source_rows.append(rows_s[np.asarray(i, dtype=np.int64)])
-        target_rows.append(rows_t[np.asarray(j, dtype=np.int64)])
-    return pl.DataFrame({"source_row": np.concatenate(source_rows), "target_row": np.concatenate(target_rows)})
+        i, j, *w = match(rows_s, rows_t)
+        i, j = np.asarray(i, dtype=np.int64), np.asarray(j, dtype=np.int64)
+        w = np.asarray(w[0], dtype=float) if w else np.ones(len(i))
+        if top_k is not None:
+            keep = _heaviest(i, w, top_k) | _heaviest(j, w, top_k)
+            i, j, w = i[keep], j[keep], w[keep]
+        source_rows.append(rows_s[i])
+        target_rows.append(rows_t[j])
+        weights.append(w)
+    return pl.DataFrame({
+        "source_row": np.concatenate(source_rows),
+        "target_row": np.concatenate(target_rows),
+        "weight": np.concatenate(weights),
+    })
+
+
+def _heaviest(cell: np.ndarray, weight: np.ndarray, k: int) -> np.ndarray:
+    """True for each link among the k heaviest links of its cell."""
+    order = np.lexsort((-weight, cell))
+    sorted_cell = cell[order]
+    rank = np.arange(len(cell)) - np.searchsorted(sorted_cell, sorted_cell, side="left")
+    keep = np.zeros(len(cell), dtype=bool)
+    keep[order[rank < k]] = True
+    return keep
 
 
 class _Side:

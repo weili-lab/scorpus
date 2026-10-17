@@ -4,7 +4,8 @@ A sample is a list of (source rows, target rows) tuples, rows being 0-based posi
 in the input table:
 
 - link "none":   one tuple per pair row in the bundle, with n_source and n_target cells
-- link "random", "self" or "table": one tuple per linked cell, ([i], [j])
+- link "random", "self" or "table": one tuple per linked cell, ([i], [j]); with "table", a cell
+  that has no link into the partner group gives no tuple
 
 A bundle is the set of pair rows drawn together (``bundle_by``); without ``bundle_by``
 every pair row is its own bundle. Inside one sample, a group used by several pair rows
@@ -38,7 +39,9 @@ class Sampler:
             Or the name of a pair-table column holding one of "none", "random", "self", "table"
             per row.
         link_table: columns ``source_row`` and ``target_row`` (for example lineage or OT links,
-            see ``links_from``), used by rows whose link is "table".
+            see ``links_from``), used by rows whose link is "table". An optional ``weight``
+            column makes a cell pick among its links into the partner group by weight; uniform
+            otherwise.
         weight: a pair-table column; a bundle's weight is the sum over its rows. Uniform if None.
         drop_small: leave out pair rows whose source group has fewer than n_source cells or whose
             target group has fewer than n_target cells. Otherwise such a group gives all its cells
@@ -92,13 +95,14 @@ class Sampler:
         for g, rows in enumerate(groups.rows):
             self._group_of_row[rows] = g
 
-        self.uses_link_table = bool(np.any(self.pair_link == "table"))
+        self._is_self, self._is_table = self.pair_link == "self", self.pair_link == "table"
+        self.uses_link_table = bool(np.any(self._is_table))
+        # One cell per side and no bundles: sampling can be done with array operations.
+        self.single_cells = self.single_pair_bundles and self.n_source == 1 and self.n_target == 1
         if self.uses_link_table:
             link_table = link_table if isinstance(link_table, pl.DataFrame) else pl.from_pandas(link_table)
-            self._linked = {
-                "source": _row_map(link_table["source_row"].to_numpy(), link_table["target_row"].to_numpy(), groups.n_rows),
-                "target": _row_map(link_table["target_row"].to_numpy(), link_table["source_row"].to_numpy(), groups.n_rows),
-            }
+            self._link_table = link_table
+            self._link_index = {}  # covered side -> _Links, built when first needed
 
     @property
     def n_bundles(self) -> int:
@@ -115,13 +119,12 @@ class Sampler:
         """``n_bundles`` bundles for one batch, drawn in one call; reproducible from (seed, step)."""
         rng = np.random.default_rng([seed, step])
         bundles = self._draw_bundles(rng, n_bundles)
-        if self.single_pair_bundles and self.n_source == 1 and self.n_target == 1 and not self.uses_link_table:
+        if self.single_cells:
             # Single cells on both sides: pick every source and target cell with one array operation each.
             s, t = self.pair_source[bundles], self.pair_target[bundles]
             source_rows = self._flat[self._start[s] + rng.integers(self._count[s])]
-            target_rows = self._flat[self._start[t] + rng.integers(self._count[t])]
-            target_rows = np.where(self.pair_link[bundles] == "self", source_rows, target_rows)
-            return [[([int(i)], [int(j)])] for i, j in zip(source_rows, target_rows)]
+            target_rows = self._partners(source_rows, bundles, "source", rng)
+            return [[([int(i)], [int(j)])] if j >= 0 else [] for i, j in zip(source_rows, target_rows)]
         return [self._realize(b, rng, cover="source") for b in bundles]
 
     def _draw_bundles(self, rng, n: int) -> np.ndarray:
@@ -138,6 +141,9 @@ class Sampler:
         bundle that contains its group on the covered side, by bundle weight, and the other
         groups' cells are drawn as in step mode.
         """
+        if self.single_cells:
+            source_rows, target_rows = self._epoch_single(epoch, seed, cover)
+            return [[([int(i)], [int(j)])] for i, j in zip(source_rows, target_rows)]
         rng = np.random.default_rng([seed, epoch])
         covered_of_pair = self.pair_source if cover == "source" else self.pair_target
         size = self.n_source if cover == "source" else self.n_target
@@ -157,6 +163,74 @@ class Sampler:
             for start, b in zip(starts, chosen):
                 samples.append(self._realize(b, rng, cover, fixed=(g, rows[start:start + chunk])))
         return [samples[i] for i in rng.permutation(len(samples))]
+
+    def epoch_rows(self, epoch: int, seed: int = 0, cover: str = "source",
+                   drop_last: bool = False) -> tuple[np.ndarray, np.ndarray]:
+        """The cell pairs of ``epoch()``, in order, as a source-row array and a target-row array.
+
+        A set sample adds its source cells and its target cells side by side, so the two arrays
+        line up only when each sample has as many source as target cells. With single cells this
+        skips building the samples.
+        """
+        if self.single_cells:
+            return self._epoch_single(epoch, seed, cover)
+        source_rows, target_rows = [], []
+        for sample in self.epoch(epoch, seed, cover, drop_last):
+            for source, target in sample:
+                source_rows.extend(source)
+                target_rows.extend(target)
+        return np.asarray(source_rows, dtype=np.int64), np.asarray(target_rows, dtype=np.int64)
+
+    def _epoch_single(self, epoch: int, seed: int, cover: str) -> tuple[np.ndarray, np.ndarray]:
+        """``epoch()`` for single cells, one array operation per step instead of one call per cell."""
+        rng = np.random.default_rng([seed, epoch])
+        covered_of_pair, other_of_pair = ((self.pair_source, self.pair_target) if cover == "source"
+                                          else (self.pair_target, self.pair_source))
+        n_groups = len(self._count)
+
+        # Pair rows sorted by covered group, with a running total of their weights: the rows of
+        # group g fill the stretch [weight_before[g], weight_before[g] + weight_of[g]).
+        order = np.argsort(covered_of_pair, kind="stable")
+        cum = np.cumsum(self.bundle_weight[order])
+        row_end = np.searchsorted(covered_of_pair[order], np.arange(n_groups), side="right")
+        row_start = np.searchsorted(covered_of_pair[order], np.arange(n_groups), side="left")
+        cum0 = np.concatenate([[0.0], cum])
+        weight_before = cum0[row_start]
+        weight_of = cum0[row_end] - weight_before
+
+        # Every cell of every covered group once, in shuffled order.
+        is_covered = row_end > row_start
+        cells = rng.permutation(self._flat[np.repeat(is_covered, self._count)])
+        g = self._group_of_row[cells]
+
+        # A pair row for every cell by weight: a random point in its group's stretch, then one
+        # binary search for all cells. Rounding can put the point on the stretch end; clip it back.
+        point = weight_before[g] + rng.random(len(cells)) * weight_of[g]
+        p = order[np.minimum(np.searchsorted(cum, point, side="right"), row_end[g] - 1)]
+
+        partner = self._partners(cells, p, cover, rng)
+        linked = partner >= 0
+        cells, partner = cells[linked], partner[linked]
+        return (cells, partner) if cover == "source" else (partner, cells)
+
+    def _partners(self, cells: np.ndarray, p: np.ndarray, cover: str, rng) -> np.ndarray:
+        """One partner per covered cell for pair rows ``p``; -1 where a "table" cell has no link."""
+        other = (self.pair_target if cover == "source" else self.pair_source)[p]
+        partner = self._flat[self._start[other] + rng.integers(self._count[other])]
+        partner = np.where(self._is_self[p], cells, partner)
+        if self.uses_link_table:
+            is_table = self._is_table[p]
+            partner[is_table] = self._links(cover).pick(cells[is_table], other[is_table], rng)
+        return partner
+
+    def _links(self, cover: str) -> "_Links":
+        if cover not in self._link_index:
+            cell, partner = ("source_row", "target_row") if cover == "source" else ("target_row", "source_row")
+            table = self._link_table
+            weight = table["weight"].to_numpy() if "weight" in table.columns else np.ones(table.height)
+            self._link_index[cover] = _Links(table[cell].to_numpy(), table[partner].to_numpy(), weight,
+                                             self._group_of_row, len(self._count))
+        return self._link_index[cover]
 
     # ---- shared ----------------------------------------------------------------------------
 
@@ -187,18 +261,10 @@ class Sampler:
                 sample.append((rows["source"].tolist(), rows["target"].tolist()))
                 continue
 
-            for cell in covered_rows:
-                if link_kind == "self":
-                    partner = cell
-                elif link_kind == "random":
-                    partner = self._flat[self._start[other_group] + rng.integers(self._count[other_group])]
-                else:
-                    # Linked rows of this cell that belong to the other group of this pair row.
-                    candidates = self._linked[cover](cell)
-                    candidates = candidates[self._group_of_row[candidates] == other_group]
-                    if len(candidates) == 0:
-                        continue  # this cell has no link into the partner group
-                    partner = candidates[rng.integers(len(candidates))]
+            partners = self._partners(covered_rows, np.full(len(covered_rows), p), cover, rng)
+            for cell, partner in zip(covered_rows, partners):
+                if partner < 0:
+                    continue  # this cell has no link into the partner group
                 link = {cover: [int(cell)], other_side: [int(partner)]}
                 sample.append((link["source"], link["target"]))
         return sample
@@ -211,9 +277,23 @@ class Sampler:
         return rows[rng.choice(len(rows), n, replace=False)]
 
 
-def _row_map(keys: np.ndarray, values: np.ndarray, n_rows: int):
-    """Lookup row -> array of linked rows, stored as one sorted array with offsets."""
-    order = np.argsort(keys, kind="stable")
-    keys, values = keys[order].astype(np.int64), values[order].astype(np.int64)
-    bounds = np.searchsorted(keys, np.arange(n_rows + 1))
-    return lambda row: values[bounds[row]:bounds[row + 1]]
+class _Links:
+    """A link table sorted by (cell, partner group): a cell's links into one group are one block."""
+
+    def __init__(self, cell, partner, weight, group_of_row, n_groups: int):
+        cell, partner = cell.astype(np.int64), partner.astype(np.int64)
+        self.n_groups = n_groups
+        key = cell * n_groups + group_of_row[partner]
+        order = np.argsort(key, kind="stable")
+        self.key, self.partner = key[order], partner[order]
+        # cum[m] is the weight of links before link m, so link m covers [cum[m], cum[m + 1]).
+        self.cum = np.concatenate([[0.0], np.cumsum(weight[order].astype(float))])
+
+    def pick(self, cells: np.ndarray, groups: np.ndarray, rng) -> np.ndarray:
+        """One linked partner per cell inside the given group, by weight; -1 where there is none."""
+        want = cells * self.n_groups + groups
+        start = np.searchsorted(self.key, want, side="left")
+        end = np.searchsorted(self.key, want, side="right")
+        point = self.cum[start] + rng.random(len(cells)) * (self.cum[end] - self.cum[start])
+        m = np.minimum(np.maximum(np.searchsorted(self.cum, point, side="right") - 1, start), end - 1)
+        return np.where(end > start, self.partner[m], -1)
