@@ -60,9 +60,81 @@ recovery of the original absolute counts. The manifest distinguishes original
 counts, recovered counts, and non-count expression.
 
 Only the selected matrix and its obs/var are converted. Other layers, obsm,
-obsp, and uns are not copied. Existing outputs are never overwritten. A failed
-conversion can leave an incomplete directory, but no completed `corpus.yaml`;
-inspect that directory and choose a fresh output for a retry.
+obsp, and uns are not copied unless named as extra matrices (below). Existing
+outputs are never overwritten. A failed conversion can leave an incomplete
+directory, but no completed `corpus.yaml`; inspect that directory and choose a
+fresh output for a retry.
+
+### Fractional counts: `round_counts`
+
+```python
+from_h5ad("kallisto.h5ad", "rounded.corpus", layers="X", round_counts=True)
+```
+
+Some pipelines store fractional count estimates (e.g. kallisto `--mm`, which
+splits multi-mapping reads between genes). `round_counts=True` rounds every
+value to the nearest integer, with halves rounded to even (`numpy.rint`, so the
+many 0.5 splits are not all rounded up), and
+then applies the usual nonnegative-count checks. The manifest records
+`expression_kind: rounded_counts` and `fractional_value_share`, the share of
+stored nonzero values that were fractional. It needs an explicit `layers=`.
+
+### Keeping some features: `features`
+
+```python
+from_h5ad("cite.h5ad", "rna.corpus", layers="X", features=("modality", "RNA"))
+```
+
+`features=(var_column, value)` keeps only the features whose var column equals
+the value, e.g. to drop normalised antibody (CITE) columns stored next to RNA
+counts. Both the count checks and the stored var use only the kept features.
+It needs an explicit `layers=`.
+
+### Guide and other per-cell matrices: `extra`
+
+```python
+names = list(h5py.File("screen.h5ad")["uns/guide_names"][:].astype(str))
+c = from_h5ad("screen.h5ad", "screen.corpus",
+              extra={"guide_umi": ("obsm/guide_umi", names)})
+guide_umi, guides = c.read_extra("guide_umi", rows=[10, 3, 7])
+```
+
+Each entry names an h5 path (sparse or dense, one row per cell) and its feature
+names. It is stored as `extra/<name>.lance` in the same row order as the
+expression, with `extra/<name>_features.parquet` indexed by feature name.
+Values must be nonnegative integer counts. `Corpus.read_extra(name, rows)`
+returns a CSR matrix of those rows, in the given order, and the feature table.
+Extra matrices belong to a standalone corpus; `concat` does not use them.
+
+### CSC matrices
+
+Reading rows out of a CSC matrix touches every column, so a CSC source (select
+it with `layers=`) is first regrouped by rows: one pass over blocks of genes
+appends each nonzero to a temporary file per `chunk_rows` rows, and each file
+then becomes one chunk. Temporary files take about 12 bytes per nonzero, live
+in a `csc_row_buckets` folder under the required `csc_tmp_dir=`
+and are removed at the end.
+
+## Many CellRanger files: `from_10x_h5_files`
+
+```python
+from scorpus import from_10x_h5_files
+
+cells = pd.read_parquet("cells.parquet")   # one row per cell: file_id, local_row, ...
+files = {"lane1": "lane1.h5", "lane2": "lane2.h5", "rescued": "rescued.h5ad"}
+genes = pd.read_parquet("genes.parquet").set_index("gene_id")
+guides = pd.read_parquet("guide_features.parquet").set_index("sgrna_id")
+c = from_10x_h5_files(files, cells, "screen.corpus", genes=genes, guides=guides)
+```
+
+Cells are written in the order of `cells`, which becomes obs unchanged; each
+row points to a cell by `file_id` (a key of `files`) and `local_row` (its row
+in that file). Every file's "Gene Expression" features are matched to the
+index of `genes` by id, so files that list genes in different orders still
+land on one gene axis; a file whose gene ids are not exactly that set is an
+error. "CRISPR Guide Capture" features go the same way to the `guide_umi`
+extra matrix. h5ad files (counts in `X`, gene ids in `var["gene_ids"]`) have
+no guide features and get empty guide rows.
 
 ## AnnData access and export
 

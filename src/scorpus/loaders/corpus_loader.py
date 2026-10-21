@@ -20,6 +20,7 @@ from .expression import (
     DatasetEntry,
     ExpressionBatch,
     ExpressionReader,
+    FederatedLanceReader,
     LanceDatasetEntry,
     ZarrDatasetEntry,
     build_expression_reader,
@@ -286,6 +287,26 @@ class Corpus:
             for column in self.metadata_index.df.columns:
                 if column not in previous_columns:
                     self.obs_view[column] = self.metadata_index.df[column].to_numpy()
+
+    def read_extra(self, name: str, rows: Sequence[int]):
+        """Rows of an extra matrix saved at conversion (e.g. ``"guide_umi"``).
+
+        Works on a standalone converted corpus. Returns a CSR matrix with one row
+        per requested row, in the given order, and the feature table (indexed by
+        feature name) for its columns.
+        """
+        import pandas as pd
+        from scipy import sparse
+
+        folder = self.corpus_root / "extra"
+        features = pd.read_parquet(folder / f"{name}_features.parquet")
+        reader = FederatedLanceReader([LanceDatasetEntry(name, 0, len(self.obs), folder / f"{name}.lance")])
+        batch = reader.read_expression_flat([int(row) for row in rows])
+        matrix = sparse.csr_matrix(
+            (batch.expression_counts, batch.expressed_gene_indices, batch.row_offsets),
+            shape=(batch.batch_size, len(features)),
+        )
+        return matrix, features
 
 # ---------------------------------------------------------------------------
 # Backend name normalisation
