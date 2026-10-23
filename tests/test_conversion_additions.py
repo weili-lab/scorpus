@@ -52,6 +52,18 @@ def test_extra_matrices_read_back_by_row(tmp_path):
     np.testing.assert_array_equal(corpus.to_anndata().X.toarray(), X.toarray())
 
 
+def test_chunks_are_committed_as_one_lance_write(tmp_path):
+    import lance
+
+    X = sparse.csr_matrix(np.random.default_rng(0).poisson(1, (7, 4)))
+    path = write_h5ad(tmp_path / "g.h5ad", X, obsm={"guide_umi": X[:, :3].astype(np.int32)})
+    from_h5ad(path, tmp_path / "g", chunk_rows=3, extra={"guide_umi": ("obsm/guide_umi", ["a", "b", "c"])})
+    for table in ["expression.lance", "extra/guide_umi.lance"]:
+        dataset = lance.dataset(tmp_path / "g" / table)
+        # 3 chunks, but one commit: a single version and fragment
+        assert (dataset.version, len(dataset.get_fragments()), dataset.count_rows()) == (1, 1, 7)
+
+
 def test_csc_source_is_regrouped_by_rows(tmp_path):
     rng = np.random.default_rng(1)
     values = rng.poisson(0.7, (11, 5)).astype(np.float32)
