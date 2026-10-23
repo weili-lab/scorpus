@@ -1,6 +1,6 @@
 """Sparse on-disk corpora with optional, in-memory metadata harmonization."""
 
-from .conversion import from_h5ad
+from .conversion import from_10x_h5_files, from_h5ad
 from .loaders.corpus_loader import Corpus, load_corpus
 from .loaders.composition import concat
 
@@ -12,7 +12,7 @@ from .contracts import (
 )
 
 __all__ = [
-    "from_h5ad", "load_corpus", "concat", "Corpus",
+    "from_h5ad", "from_10x_h5_files", "load_corpus", "concat", "Corpus",
     "BLUEPRINT",
     "CONTRACT_VERSION",
     "REQUIRED_ARTIFACTS",
