@@ -27,7 +27,7 @@ LINK_KINDS = ("none", "random", "self", "table")
 class Sampler:
     def __init__(self, groups: Groups, pairs: pl.DataFrame, *, n_source=1, n_target=None,
                  bundle_by: list[str] | None = None, links="none", link_table=None,
-                 weight: str | None = None, drop_small: bool = False):
+                 weight: str | None = None, drop_small: bool = False, run_length: int = 1):
         """
         n_source, n_target: cells per source / target group in a sample; an integer or "all".
             n_target defaults to n_source.
@@ -46,8 +46,19 @@ class Sampler:
         drop_small: leave out pair rows whose source group has fewer than n_source cells or whose
             target group has fewer than n_target cells. Otherwise such a group gives all its cells
             and the model decides whether to pad.
+        run_length: draw a group's cells as runs of this many neighbouring rows of the group
+            (consecutive positions in ``groups.rows[g]``, wrapping around at its end) instead of
+            one by one. The group is rotated by a random offset and cut into runs; a draw takes
+            runs in random order until it has its cells, and an epoch uses every run once. Every
+            cell keeps the same chance of being drawn, but neighbours tend to be drawn together.
+            A run is a uniform random subset of its group only on a table written in
+            ``write_order`` order (groups contiguous, shuffled within), where a run is also one
+            contiguous read. On any other table a run is simply neighbouring rows in the original
+            order (for example cells of one lane). Single cells (n_source = n_target = 1) are
+            unaffected. 1 (the default) draws cells one by one.
         """
         self.groups = groups
+        self.run_length = run_length
         self.n_source = n_source
         self.n_target = n_source if n_target is None else n_target
         if not isinstance(links, str):
@@ -136,8 +147,9 @@ class Sampler:
     def epoch(self, epoch: int, seed: int = 0, cover: str = "source", drop_last: bool = False) -> list[Sample]:
         """Every cell of every group on the covered side is used once, in shuffled order.
 
-        Each covered group is shuffled and cut into chunks of n_source (or n_target) cells; the
-        last chunk keeps what is left, or is left out with ``drop_last``. Each chunk takes one
+        Each covered group is shuffled (as whole runs with ``run_length`` > 1) and cut into chunks
+        of n_source (or n_target) cells; the last chunk keeps what is left, or is left out with
+        ``drop_last``. Each chunk takes one
         bundle that contains its group on the covered side, by bundle weight, and the other
         groups' cells are drawn as in step mode.
         """
@@ -156,7 +168,8 @@ class Sampler:
         for g in sorted(bundles_of_group):
             bundles = np.asarray(bundles_of_group[g])
             cdf = np.cumsum(self.bundle_weight[bundles]) / self.bundle_weight[bundles].sum()
-            rows = rng.permutation(self.groups.rows[g])
+            rows = self.groups.rows[g]
+            rows = rng.permutation(rows) if self.run_length == 1 else self._runs(rows, rng)
             chunk = len(rows) if size == "all" else size
             starts = range(0, len(rows) - chunk + 1 if drop_last else len(rows), chunk)
             chosen = bundles[np.minimum(np.searchsorted(cdf, rng.random(len(starts)), side="right"), len(bundles) - 1)]
@@ -274,7 +287,26 @@ class Sampler:
         rows = self.groups.rows[g]
         if n == "all" or n >= len(rows):
             return rng.permutation(rows)
-        return rows[rng.choice(len(rows), n, replace=False)]
+        if self.run_length == 1:
+            return rows[rng.choice(len(rows), n, replace=False)]
+        return self._runs(rows, rng, n)
+
+    def _runs(self, rows: np.ndarray, rng, n: int | None = None) -> np.ndarray:
+        """The group's rows as runs of ``run_length`` neighbours, runs in random order; the first n cells if given.
+
+        The rows are rotated by a random offset and cut into runs, the last one shorter when
+        run_length does not divide the group size. The random offset gives every cell the same
+        chance of being drawn.
+        """
+        size, r = len(rows), self.run_length
+        offset = rng.integers(size)
+        n_runs = -(-size // r)
+        # n cells need ceil(n / r) runs, plus one in case the short last run is among them.
+        n_picked = n_runs if n is None else min(-(-n // r) + 1, n_runs)
+        picked = rng.choice(n_runs, n_picked, replace=False)
+        positions = (picked[:, None] * r + np.arange(r)).ravel()
+        positions = positions[positions < size][:n]
+        return rows[(offset + positions) % size]
 
 
 def cells(groups: Groups, epoch: int = 0, seed: int = 0, batch_size: int | None = None,
