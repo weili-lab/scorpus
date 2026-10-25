@@ -5,7 +5,8 @@ class that handles global→local routing and order-preserving reassembly, and
 backend-specific implementations for the remaining slim-main readers.
 
 Lance readers (and views over them) use ``SortedTakeReader``: one sorted
-``take`` per table, all tables read at once, and a single copy into the batch.
+``take`` per table, all tables read at once, and at most one copy into the batch
+(none for sorted, distinct rows of one two-column table).
 
 Supported backends: Lance and Zarr.
 Supported topologies: aggregate and federated.
@@ -384,6 +385,13 @@ class SortedTakeReader(BaseExpressionReader):
     def read_expression_flat(
         self, global_indices: Sequence[int]
     ) -> ExpressionBatch:
+        """Read the rows in the given order (duplicates allowed) as one batch.
+
+        When the rows are sorted, distinct and from one two-column table, the
+        gene and count arrays are read-only views of Lance's read buffers:
+        copy before modifying them (``.copy()``, or ``torch.as_tensor`` /
+        ``torch.tensor`` rather than ``torch.from_numpy``).
+        """
         indices = np.array(global_indices, dtype=np.int64)
         if len(indices) == 0:
             return _empty_expression_batch()
@@ -420,15 +428,25 @@ class SortedTakeReader(BaseExpressionReader):
         row_starts = np.concatenate([block.offsets[:-1] for block in blocks])
         row_stops = np.concatenate([block.offsets[1:] for block in blocks])
 
-        # 6. Put the rows in batch order and copy their values once, casting
-        #    genes to int32 and counts to the tables' common counts dtype.
+        # 6. Put the rows in batch order; genes become int32 and counts the
+        #    tables' common counts dtype.
         block_of_row, row_starts, row_stops = block_of_row[inverse], row_starts[inverse], row_stops[inverse]
-        row_slices = list(zip(block_of_row.tolist(), row_starts.tolist(), row_stops.tolist()))
-        counts_dtype = np.result_type(*[block.counts_dtype for block in blocks])
-        genes = np.concatenate([blocks[b].genes[start:stop] for b, start, stop in row_slices], dtype=np.int32)
-        counts = np.concatenate([blocks[b].counts[start:stop] for b, start, stop in row_slices], dtype=counts_dtype)
         row_offsets = np.zeros(len(indices) + 1, dtype=np.int64)
         np.cumsum(row_stops - row_starts, out=row_offsets[1:])
+        counts_dtype = np.result_type(*[block.counts_dtype for block in blocks])
+        if len(blocks) == 1 and np.array_equal(inverse, np.arange(len(indices))):
+            # One block already in batch order, so no copy is needed
+            # (packed values still need one, to unpack them).
+            genes = np.ascontiguousarray(blocks[0].genes, dtype=np.int32)
+            counts = np.ascontiguousarray(blocks[0].counts, dtype=counts_dtype)
+        else:
+            # One copy, one slice per range of rows that follow on in a block.
+            continues_previous = (block_of_row[1:] == block_of_row[:-1]) & (row_starts[1:] == row_stops[:-1])
+            first_row = np.flatnonzero(np.concatenate([[True], ~continues_previous]))
+            last_row = np.append(first_row[1:], len(indices)) - 1
+            ranges = list(zip(block_of_row[first_row].tolist(), row_starts[first_row].tolist(), row_stops[last_row].tolist()))
+            genes = np.concatenate([blocks[b].genes[start:stop] for b, start, stop in ranges], dtype=np.int32)
+            counts = np.concatenate([blocks[b].counts[start:stop] for b, start, stop in ranges], dtype=counts_dtype)
         return ExpressionBatch(
             batch_size=len(indices),
             global_row_index=indices,

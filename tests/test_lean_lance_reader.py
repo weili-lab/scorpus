@@ -95,6 +95,8 @@ def test_lean_read_equals_row_by_row_reference(tmp_path):
         random_order.tolist(),  # all tables, any order
         list(random_order[::-1]) + list(random_order[:50]),  # duplicates
         [5, 5, 5, 3_200, 5],
+        list(range(100, 900, 3)),  # sorted, distinct rows of one table: the batch is the read block itself
+        list(range(600, 640)) + list(range(10, 30)) + list(range(20, 25)) + [3_100, 3_101],  # runs, any order
     ]
     for indices in batches:
         batch = reader.read_expression_flat(indices)
@@ -152,11 +154,12 @@ def test_packed_table_reads_like_two_column(tmp_path, counts_dtype, special_coun
     write_table(str(tmp_path / "packed.lance"), *rows, packed=True)
     two_column = FederatedLanceReader([LanceDatasetEntry("t", 0, 2500, tmp_path / "two_column.lance")])
     packed = FederatedLanceReader([LanceDatasetEntry("t", 0, 2500, tmp_path / "packed.lance", "packed", counts_dtype)])
-    indices = list(range(20)) + rng.integers(0, 2500, 1000).tolist()  # includes the special values
-    expected = two_column.read_expression_flat(indices)
-    assert expected.expression_counts.dtype == np.dtype(counts_dtype)
-    assert set(np.asarray(special_counts, dtype=counts_dtype)) <= set(expected.expression_counts)
-    assert_same_batch(packed.read_expression_flat(indices), expected)
+    random_order = list(range(20)) + rng.integers(0, 2500, 1000).tolist()  # includes the special values
+    for indices in [random_order, sorted(set(random_order))]:  # copied by ranges; one block in stored order
+        expected = two_column.read_expression_flat(indices)
+        assert expected.expression_counts.dtype == np.dtype(counts_dtype)
+        assert set(np.asarray(special_counts, dtype=counts_dtype)) <= set(expected.expression_counts)
+        assert_same_batch(packed.read_expression_flat(indices), expected)
 
 
 def test_packed_standalone_corpus_reads_like_two_column_in_a_view(tmp_path):
