@@ -14,9 +14,9 @@ Two ways to gather the rows (``method``):
 - ``"bins"``: two sequential passes through a temporary folder. Pass 1 reads the source in
   consecutive row ranges and appends every row to the bin (an Arrow IPC file) of its new
   position. Pass 2 writes each chunk of the new order from its bins, one bin at a time, each
-  put in new order. The bins are uncompressed by default (about 8 bytes per nonzero value, 2-3x
-  the Lance table) on temporary disk. ``bin_compression`` ("lz4" or "zstd") compresses the IPC
-  buffers; the bin files stay plain Arrow IPC. A worker holds about one bin of ``BIN_ROWS`` rows in memory.
+  put in new order. The IPC buffers of the bins are zstd-compressed by default (about 4x smaller
+  than uncompressed, which is about 8 bytes per nonzero value, 2-3x the Lance table);
+  ``bin_compression`` can be ``"lz4"`` or ``None`` (uncompressed); the bin files stay plain Arrow IPC. A worker holds about one bin of ``BIN_ROWS`` rows in memory.
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ BIN_ROWS = 65_536
 
 def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: str = "two_column",
                    workers: int = 1, method: str = "random", temp_dir=None,
-                   bin_compression: str | None = None) -> Path:
+                   bin_compression: str | None = "zstd") -> Path:
     """Write the corpus at ``source_root`` to ``dest_root`` with rows ``order``.
 
     ``order`` gives the source row for each new position (``new = old[order]``),
@@ -59,7 +59,7 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
     parallel, each holding one lean reader (about 5-15 GB for a large corpus).
 
     ``method`` is ``"random"`` or ``"bins"`` (module docstring); ``"bins"`` needs ``temp_dir``.
-    ``bin_compression`` is ``None``, ``"lz4"`` or ``"zstd"`` (method ``"bins"`` only).
+    ``bin_compression`` is ``"zstd"`` (default), ``"lz4"`` or ``None`` for uncompressed bins (method ``"bins"`` only).
 
     ``layout="packed"`` writes the expression table as one int64 list column
     ``packed`` with values ``(count_bits << 16) | gene`` (see

@@ -129,7 +129,8 @@ def test_filtered_rewrite_holds_exactly_the_kept_cells(tmp_path, monkeypatch):
         assert sorted(order[start:stop].tolist()) == sorted(set(groups.rows[group].tolist()) & set(keep.tolist()))
 
 
-@pytest.mark.parametrize("workers, filtered, compression", [(1, False, None), (3, True, None), (3, True, "zstd")])
+@pytest.mark.parametrize("workers, filtered, compression",
+                         [(1, False, {"bin_compression": None}), (3, True, {"bin_compression": None}), (3, True, {})])
 def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch, workers, filtered, compression):
     # FRAGMENT_ROWS stays above the rows per worker, so there is one chunk (fragment) per worker,
     # each with several bins holding rows from several pass-1 workers.
@@ -142,7 +143,7 @@ def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch,
     reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=workers)
     (tmp_path / "bins_temp").mkdir()
     reorder_corpus(tmp_path / "source", tmp_path / "bins", order, {}, workers=workers,
-                   method="bins", temp_dir=tmp_path / "bins_temp", bin_compression=compression)
+                   method="bins", temp_dir=tmp_path / "bins_temp", **compression)
 
     for table in ["expression.lance", "extra/guide_umi.lance"]:
         parallel = lance.dataset(tmp_path / "parallel" / table)

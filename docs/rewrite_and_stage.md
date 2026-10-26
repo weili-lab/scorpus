@@ -30,7 +30,7 @@ each route have not been measured yet.
 |---|---|---|
 | NVMe staging | `staged([...], "/scratch1/...")`, then `reorder_corpus(..., workers=8)` | local disk for the source and the new corpus |
 | RAM staging (opt-in) | `staged([...], "/dev/shm/...")`, then as above | job memory for the source copy, the workers' readers and the new corpus's page cache |
-| Bins | `reorder_corpus(..., workers=8, method="bins", temp_dir=...)` | temporary disk for the bins: uncompressed by default, about 8 bytes per nonzero value (2-3x the Lance table); `bin_compression="lz4"` or `"zstd"` compresses the bins (size and speed not yet measured); reads the source sequentially |
+| Bins | `reorder_corpus(..., workers=8, method="bins", temp_dir=...)` | temporary disk for the bins, zstd-compressed by default (`bin_compression="zstd"`); reads the source sequentially. Measured on Replogle and Marson: bins about 4x smaller (Replogle 104 to 26 GB; Marson 1.15 TB to 275 GB), peak temp disk 2.3-2.8x lower, write 1.30-1.43x faster on Replogle and 2.14x on Marson (cross-node), outputs identical. Cost: more CPU (7.5-11 busy cores of 16 vs 3.4-4.6) and on Marson 343 GB summed process RSS in pass 1 at 16 workers (use a 384G job or fewer workers). lz4 was worse than zstd on size and time. `bin_compression=None` gives uncompressed bins (about 8 bytes per nonzero value) |
 | Plain network storage | `reorder_corpus(..., workers=8)` on the source where it is | nothing extra; every row is a separate request |
 
 - **RAM:** `stage` refuses a `/dev/shm` copy that would not fit in the job's memory limit;
