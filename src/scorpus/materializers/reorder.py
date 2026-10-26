@@ -13,8 +13,9 @@ Two ways to gather the rows (``method``):
   node-local NVMe or RAM; slow on network storage, where every row is a request.
 - ``"bins"``: two sequential passes through a temporary folder. Pass 1 reads the source in
   consecutive row ranges and appends every row to the bin (an Arrow IPC file) of its new
-  position. Pass 2 loads one bin at a time, puts its rows in new order and writes them.
-  It needs about one table of temporary disk and memory for about one bin per worker.
+  position. Pass 2 writes each chunk of the new order from its bins, one bin at a time, each
+  put in new order. The bins are uncompressed (about 8 bytes per nonzero value, 2-3x the Lance
+  table) on temporary disk; a worker holds about one bin of ``BIN_ROWS`` rows in memory.
 """
 
 from __future__ import annotations
@@ -35,10 +36,10 @@ from ..loaders.expression import FederatedLanceReader, LanceDatasetEntry
 
 # Rows gathered per lean-reader read (one sorted take); also one record batch of the new table.
 BLOCK_ROWS = 65_536
-# Rows of the new order written by one worker task: about one Lance fragment.
+# Most rows of the new order in one chunk; each chunk is written by one worker as one Lance fragment.
 FRAGMENT_ROWS = 1024 * 1024
 # New rows per temporary bin (method "bins"); a worker holds about one bin in memory.
-BIN_ROWS = 250_000
+BIN_ROWS = 65_536
 
 
 def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: str = "two_column",
@@ -108,11 +109,16 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
 
 def _write_reordered_table(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
                            workers: int, method: str, temp_dir) -> None:
-    """Write the rows ``order`` of one table as fragments, then commit them once, in new-row order."""
+    """Write the rows ``order`` of one table as fragments, then commit them once, in new-row order.
+
+    The new order is cut into chunks of consecutive new rows, at least one per worker and at most
+    ``FRAGMENT_ROWS`` rows each; every chunk becomes one fragment.
+    """
+    chunk_rows = min(FRAGMENT_ROWS, math.ceil(len(order) / workers))
     if method == "random":
-        written = _write_through_random_reads(source, dest_path, order, packed, workers)
+        written = _write_through_random_reads(source, dest_path, order, packed, workers, chunk_rows)
     elif method == "bins":
-        written = _write_through_bins(source, dest_path, order, packed, workers,
+        written = _write_through_bins(source, dest_path, order, packed, workers, chunk_rows,
                                       Path(temp_dir) / f"{dest_path.stem}_bins")
     else:
         raise ValueError(f"Unknown method {method!r}: use 'random' or 'bins'")
@@ -133,14 +139,14 @@ def _in_processes(function, tasks: list[tuple], workers: int) -> list:
 
 
 def _write_through_random_reads(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
-                                workers: int) -> list[tuple[pa.Schema, list]]:
-    """Write the rows ``order`` in chunks of about one fragment; returns each worker's fragments.
+                                workers: int, chunk_rows: int) -> list[tuple[pa.Schema, list]]:
+    """Write the rows ``order`` in chunks of ``chunk_rows`` new rows; returns each worker's fragments.
 
     Each worker writes a contiguous range of chunks with one lean reader, so the workers'
     fragments, concatenated, are in row order.
     """
-    starts = list(range(0, len(order), FRAGMENT_ROWS))
-    chunks = [order[start:start + FRAGMENT_ROWS] for start in starts]
+    starts = list(range(0, len(order), chunk_rows))
+    chunks = [order[start:start + chunk_rows] for start in starts]
     worker_chunks = np.array_split(np.arange(len(chunks)), min(workers, len(chunks)))
     tasks = [(source, dest_path, [starts[i] for i in ids], [chunks[i] for i in ids], packed)
              for ids in worker_chunks]
@@ -148,10 +154,11 @@ def _write_through_random_reads(source: LanceDatasetEntry, dest_path: Path, orde
 
 
 def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
-                        workers: int, bins_dir: Path) -> list[tuple[pa.Schema, list]]:
-    """Write the rows ``order`` through temporary bins of ``BIN_ROWS`` new rows; returns each bin's fragments.
+                        workers: int, chunk_rows: int, bins_dir: Path) -> list[tuple[pa.Schema, list]]:
+    """Write the rows ``order`` through temporary bins; returns each chunk's fragment.
 
-    Bin ``b`` holds new rows ``b * BIN_ROWS`` up to ``(b + 1) * BIN_ROWS``, in one file per pass-1
+    Chunk ``c`` holds new rows ``c * chunk_rows`` up to ``(c + 1) * chunk_rows``, cut into bins of
+    ``BIN_ROWS`` new rows, so no bin crosses a chunk boundary. Each bin is one file per pass-1
     worker, so no two processes write the same file.
     """
     bins_dir.mkdir()
@@ -161,22 +168,23 @@ def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.nd
 
     # Pass 1: one consecutive range of source rows per worker, read in order.
     bounds = np.linspace(0, len(destinations), workers + 1).astype(np.int64)
-    _in_processes(_fill_bins, [(source, first, destinations[first:stop], packed, bins_dir, worker, BIN_ROWS)
+    _in_processes(_fill_bins, [(source, first, destinations[first:stop], packed, bins_dir, worker, chunk_rows, BIN_ROWS)
                                for worker, (first, stop) in enumerate(zip(bounds[:-1], bounds[1:]))], workers)
 
-    # Pass 2: one bin at a time, in new-row order.
-    n_bins = math.ceil(len(order) / BIN_ROWS)
-    written = _in_processes(_write_bin, [(bins_dir, dest_path, b) for b in range(n_bins)], workers)
+    # Pass 2: one task per chunk; it streams the chunk's bins, in order, into one fragment.
+    chunk_lengths = [min(chunk_rows, len(order) - start) for start in range(0, len(order), chunk_rows)]
+    tasks = [(bins_dir, dest_path, chunk, math.ceil(length / BIN_ROWS)) for chunk, length in enumerate(chunk_lengths)]
+    written = _in_processes(_write_chunk_from_bins, tasks, workers)
     shutil.rmtree(bins_dir)
     return written
 
 
 def _fill_bins(source: LanceDatasetEntry, first_row: int, destinations: np.ndarray, packed: bool,
-               bins_dir: Path, worker: int, bin_rows: int) -> None:
+               bins_dir: Path, worker: int, chunk_rows: int, bin_rows: int) -> None:
     """Read source rows ``first_row, first_row + 1, ...`` in blocks and append each to the bin of its new position.
 
     ``destinations[i]`` is the new position of source row ``first_row + i``, or -1 to leave it out.
-    ``bin_rows`` comes from the main process (a spawned worker re-imports this module).
+    ``chunk_rows`` and ``bin_rows`` come from the main process (a spawned worker re-imports this module).
     """
     reader = FederatedLanceReader([source])
     bin_files = {}
@@ -184,21 +192,34 @@ def _fill_bins(source: LanceDatasetEntry, first_row: int, destinations: np.ndarr
         block_destinations = destinations[block_start:block_start + BLOCK_ROWS]
         source_rows = np.arange(first_row + block_start, first_row + block_start + len(block_destinations))
         block = _record_batch(reader.read_expression_flat(source_rows), block_destinations, source_rows, packed)
-        block_bins = block_destinations // bin_rows  # -1 for rows left out
-        for b in np.unique(block_bins[block_bins >= 0]):
-            if b not in bin_files:
-                bin_files[b] = pa.ipc.new_file(str(bins_dir / f"bin_{b:06d}_worker_{worker:03d}.arrow"), block.schema)
-            bin_files[b].write_batch(block.take(np.flatnonzero(block_bins == b)))
+        kept = block_destinations >= 0
+        chunks = block_destinations // chunk_rows
+        bins_in_chunk = block_destinations % chunk_rows // bin_rows
+        for chunk, b in set(zip(chunks[kept].tolist(), bins_in_chunk[kept].tolist())):
+            if (chunk, b) not in bin_files:
+                path = bins_dir / f"chunk_{chunk:05d}_bin_{b:03d}_worker_{worker:03d}.arrow"
+                bin_files[chunk, b] = pa.ipc.new_file(str(path), block.schema)
+            rows_in_bin = np.flatnonzero(kept & (chunks == chunk) & (bins_in_chunk == b))
+            bin_files[chunk, b].write_batch(block.take(rows_in_bin))
     for bin_file in bin_files.values():
         bin_file.close()
 
 
-def _write_bin(bins_dir: Path, dest_path: Path, b: int) -> tuple[pa.Schema, list]:
-    """Load bin ``b`` from all pass-1 workers, sort its rows by new position, and write them as fragments."""
-    pieces = [pa.ipc.open_file(str(path)).read_all() for path in bins_dir.glob(f"bin_{b:06d}_worker_*.arrow")]
-    rows = pa.concat_tables(pieces)
-    rows = rows.take(np.argsort(rows["global_row_index"].to_numpy()))
-    return _write_fragments(dest_path, iter(rows.to_batches(max_chunksize=BLOCK_ROWS)))
+def _write_chunk_from_bins(bins_dir: Path, dest_path: Path, chunk: int, n_bins: int) -> tuple[pa.Schema, list]:
+    """Write chunk ``chunk`` as one fragment from its ``n_bins`` bins."""
+    return _write_fragments(dest_path, _sorted_bin_batches(bins_dir, chunk, n_bins))
+
+
+def _sorted_bin_batches(bins_dir: Path, chunk: int, n_bins: int):
+    """Record batches of the chunk's bins in turn, each bin loaded from all pass-1 workers and sorted by new position.
+
+    Only one bin (and its sorted copy) is in memory at a time.
+    """
+    for b in range(n_bins):
+        paths = bins_dir.glob(f"chunk_{chunk:05d}_bin_{b:03d}_worker_*.arrow")
+        rows = pa.concat_tables([pa.ipc.open_file(str(path)).read_all() for path in paths])
+        rows = rows.take(np.argsort(rows["global_row_index"].to_numpy()))
+        yield from rows.to_batches()
 
 
 def _write_chunks(source: LanceDatasetEntry, dest_path: Path, starts: list[int], chunks: list[np.ndarray],

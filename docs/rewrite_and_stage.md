@@ -30,11 +30,11 @@ each route have not been measured yet.
 |---|---|---|
 | NVMe staging | `staged([...], "/scratch1/...")`, then `reorder_corpus(..., workers=8)` | local disk for the source and the new corpus |
 | RAM staging (opt-in) | `staged([...], "/dev/shm/...")`, then as above | job memory for the source copy, the workers' readers and the new corpus's page cache |
-| Bins | `reorder_corpus(..., workers=8, method="bins", temp_dir=...)` | temporary disk for the bins; reads the source sequentially |
+| Bins | `reorder_corpus(..., workers=8, method="bins", temp_dir=...)` | temporary disk for the bins: uncompressed, about 8 bytes per nonzero value (2-3x the Lance table); reads the source sequentially |
 | Plain network storage | `reorder_corpus(..., workers=8)` on the source where it is | nothing extra; every row is a separate request |
 
 - **RAM:** `stage` refuses a `/dev/shm` copy that would not fit in the job's memory limit;
   use `staged` so the copies are deleted, since `/dev/shm` belongs to the node, not the job.
-- **Bins:** see `method="bins"` and `temp_dir` in `reorder_corpus`. Bins write one Lance
-  fragment per bin (`reorder.BIN_ROWS` rows), so their output has smaller fragments than the
-  other routes; the rows are identical.
+- **Workers:** the new order is cut into chunks of at most `reorder.FRAGMENT_ROWS` rows, at
+  least one per worker; every chunk is one Lance fragment, the same for every route.
+- **Bins:** see `method="bins"` and `temp_dir` in `reorder_corpus`.

@@ -131,19 +131,24 @@ def test_filtered_rewrite_holds_exactly_the_kept_cells(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("workers, filtered", [(1, False), (3, True)])
 def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch, workers, filtered):
-    monkeypatch.setattr(reorder, "BIN_ROWS", 7)  # several bins, each with rows from several workers
+    # FRAGMENT_ROWS stays above the rows per worker, so there is one chunk (fragment) per worker,
+    # each with several bins holding rows from several pass-1 workers.
+    monkeypatch.setattr(reorder, "FRAGMENT_ROWS", 1000)
+    monkeypatch.setattr(reorder, "BIN_ROWS", 4)
     monkeypatch.setattr(reorder, "BLOCK_ROWS", 4)  # in this process: several blocks per bin file
     source = write_source_corpus(tmp_path, float_counts=False)
     keep = np.sort(np.random.default_rng(3).choice(60, 31, replace=False)) if filtered else None
     order, _ = write_order(make_groups(source.obs, ["perturbation", "lane"]), seed=0, keep=keep)
-    reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=2)
+    reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=workers)
     (tmp_path / "bins_temp").mkdir()
     reorder_corpus(tmp_path / "source", tmp_path / "bins", order, {}, workers=workers,
                    method="bins", temp_dir=tmp_path / "bins_temp")
 
     for table in ["expression.lance", "extra/guide_umi.lance"]:
-        parallel = lance.dataset(tmp_path / "parallel" / table).to_table()
-        assert lance.dataset(tmp_path / "bins" / table).to_table().equals(parallel)
+        parallel = lance.dataset(tmp_path / "parallel" / table)
+        bins = lance.dataset(tmp_path / "bins" / table)
+        assert len(parallel.get_fragments()) == len(bins.get_fragments()) == workers
+        assert bins.to_table().equals(parallel.to_table())
     for name in ["obs.parquet", "statistics.parquet"]:
         pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "bins" / name),
                                       pd.read_parquet(tmp_path / "parallel" / name))
