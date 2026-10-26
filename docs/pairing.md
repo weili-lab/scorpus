@@ -198,6 +198,17 @@ for rows in cells(groups, epoch=0, batch_size=256, same_group=True):
 Read the rows with `corpus.expression_reader.read_expression_flat(rows.tolist())`, and use
 `scorpus.loaders.dense_counts` for dense counts on the corpus gene axis.
 
+Cells filtered out at read time leave gaps between the rows of a group, and each stretch
+between gaps becomes a separate, slow read on network storage.
+`corpus.expression_reader.max_gap = 16` (Lance; default 0) also reads gaps of up to 16 rows and
+drops them in memory, so batches are unchanged, but memory per read grows up to about
+1 / (fraction of cells kept). On Marson runs on network storage (8 processes, half the cells
+kept) it recovered about half of the filter's slowdown. Use 16 when workers have spare CPU,
+4 when they are CPU-bound, and 0 on node-local NVMe or without a filter, where reading the
+gaps only costs time; avoid large values with `run_length=1`. Rewriting with the filter
+applied, `reorder_corpus(..., write_order(groups, seed, keep=rows), ...)`, removes the gaps
+for good.
+
 ## Speed (1M cells, 10,000 pairs)
 
 | | time |

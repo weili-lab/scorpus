@@ -3,7 +3,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from scorpus.pairing import Sampler, cells, combine, cross, links_from, make_groups, src, tgt
+from scorpus.pairing import Sampler, cells, combine, cross, links_from, make_groups, src, tgt, write_order
 
 is_ctrl = pl.col("perturbation") == "ctrl"
 
@@ -360,3 +360,88 @@ def test_cells_without_pairs():
     assert all(table.iloc[b]["perturbation"].nunique() == 1 for b in same)
     assert sorted(np.concatenate(same).tolist()) == list(range(12))
     assert sorted(len(b) for b in cells(groups, epoch=0, batch_size=3, same_group=True, drop_last=True)) == [3, 3, 3]
+
+
+def test_write_order():
+    """Every group one contiguous block, groups sorted by their columns, rows shuffled within."""
+    table = pd.DataFrame({"perturbation": ["B", "A", None] * 1000, "lane": [1, 2] * 1500})
+    groups = make_groups(table, by=["perturbation", "lane"])
+    order, blocks = write_order(groups, seed=0)
+    assert blocks.select("perturbation", "lane").rows() == [
+        (None, 1), (None, 2), ("A", 1), ("A", 2), ("B", 1), ("B", 2)]
+
+    # make_groups numbers groups by first appearance, so in the rewritten table group k is block k
+    rewritten = make_groups(table.iloc[order], by=["perturbation", "lane"])
+    assert rewritten.table.select("perturbation", "lane").rows() == blocks.select("perturbation", "lane").rows()
+    for rows, start, stop in zip(rewritten.rows, blocks["start"], blocks["stop"]):
+        assert rows.tolist() == list(range(start, stop))
+
+    # within a block the old rows come in an order unrelated to their original order
+    correlations = [np.corrcoef(np.arange(stop - start), order[start:stop])[0, 1]
+                    for start, stop in blocks.select("start", "stop").iter_rows()]
+    assert np.abs(correlations).max() < 0.2
+
+
+def test_write_order_keeps_only_the_given_rows():
+    """With keep, each group holds exactly its kept rows, shuffled; a group with none kept is dropped."""
+    table = pd.DataFrame({"perturbation": ["B", "A", None] * 1000, "lane": [1, 2] * 1500})
+    groups = make_groups(table, by=["perturbation", "lane"])
+    rng = np.random.default_rng(1)
+    dropped_group = groups.table.filter(pl.col("perturbation") == "A", pl.col("lane") == 2)["group"].item()
+    keep = rng.permutation(np.setdiff1d(np.arange(3000), groups.rows[dropped_group]))[:1200]
+    order, blocks = write_order(groups, seed=0, keep=keep)
+
+    assert sorted(order.tolist()) == sorted(keep.tolist())
+    assert blocks.select("perturbation", "lane").rows() == [(None, 1), (None, 2), ("A", 1), ("B", 1), ("B", 2)]
+    for group, start, stop in blocks.select("group", "start", "stop").iter_rows():
+        assert set(order[start:stop]) == set(groups.rows[group]) & set(keep.tolist())
+        assert np.abs(np.corrcoef(np.arange(stop - start), order[start:stop])[0, 1]) < 0.2
+    assert blocks["stop"][-1] == len(keep)
+
+    # keeping every row is the same as no keep
+    np.testing.assert_array_equal(write_order(groups, seed=0, keep=np.arange(3000))[0], write_order(groups, seed=0)[0])
+
+
+def run_breaks(rows: list[int], first_row: int, group_size: int) -> int:
+    """Places where the next cell is not the next row of its group (wrapping): runs - 1."""
+    position = np.asarray(rows) - first_row
+    return int(np.sum(np.diff(position) % group_size != 1))
+
+
+def test_run_draws_give_every_cell_the_same_chance():
+    """Runs of 4 from groups of 23 and 24 cells: 6 cells are two runs, and every cell is drawn equally often."""
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 23 + ["A"] * 24})
+    groups = make_groups(table, by=["perturbation"])
+    sampler = Sampler(groups, cross(groups, source=is_ctrl, target=~is_ctrl), n_source=6, run_length=4)
+    times_drawn = np.zeros(len(table))
+    n_draws = 20000
+    for step in range(n_draws):
+        ((s, t),) = sampler.sample(step)
+        assert len(set(s)) == len(set(t)) == 6
+        assert run_breaks(s, 0, 23) <= 1 and run_breaks(t, 23, 24) <= 1
+        times_drawn[s + t] += 1
+    frequency = times_drawn / n_draws
+    assert np.abs(frequency[:23] - 6 / 23).max() < 0.015
+    assert np.abs(frequency[23:] - 6 / 24).max() < 0.015
+
+
+def test_run_epoch_uses_every_cell_once():
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 23 + ["A"] * 24})
+    groups = make_groups(table, by=["perturbation"])
+    sampler = Sampler(groups, cross(groups, source=is_ctrl, target=~is_ctrl), n_source=8, run_length=4)
+    for cover, side, first_row, size in (("source", 0, 0, 23), ("target", 1, 23, 24)):
+        chunks = [sample[0][side] for sample in sampler.epoch(0, cover=cover)]
+        assert sorted(row for chunk in chunks for row in chunk) == list(range(first_row, first_row + size))
+        # the group is 6 runs of 4 (one of 3 in the group of 23), so cells change run at most 5 times
+        assert sum(run_breaks(chunk, first_row, size) for chunk in chunks) <= 5
+
+
+def test_run_length_one_matches_cell_by_cell_draws():
+    """Seeded outputs recorded from the sampler before run_length existed."""
+    table = pd.DataFrame({"perturbation": ["ctrl"] * 10 + ["A"] * 10})
+    groups = make_groups(table, by=["perturbation"])
+    sampler = Sampler(groups, cross(groups, source=is_ctrl, target=~is_ctrl), n_source=4, run_length=1)
+    assert [sampler.sample(step) for step in range(3)] == [
+        [([2, 8, 0, 3], [15, 17, 19, 18])], [([8, 4, 2, 6], [17, 12, 10, 19])], [([3, 8, 2, 6], [17, 19, 12, 10])]]
+    assert sampler.epoch(0) == [
+        [([8, 1], [16, 18, 15, 10])], [([3, 5, 9, 0], [14, 16, 17, 10])], [([4, 6, 2, 7], [17, 18, 13, 12])]]

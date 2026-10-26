@@ -56,6 +56,7 @@ quickstart
 composable_corpora
 pairing
 tutorials/pairing_walkthrough
+rewrite_and_stage
 anndata_scanpy_handoff
 perttf_loader
 backend_note

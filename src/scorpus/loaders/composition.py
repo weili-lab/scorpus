@@ -12,7 +12,7 @@ import yaml
 from scipy import sparse
 
 from .corpus_loader import Corpus
-from .expression import BaseExpressionReader, DatasetEntry, FederatedLanceReader, LanceDatasetEntry
+from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
 
@@ -64,7 +64,11 @@ def load_standalone(root: Path) -> Corpus:
     ids = var.index.astype(str).tolist()
     if not var.index.is_unique:
         ids = [f"local:{i}" for i in range(len(var))]
-    entry = LanceDatasetEntry(name, 0, len(obs), root / "expression.lance")
+    # A table without an `expression_layout` entry is two-column; a packed
+    # table's counts dtype is the corpus `dtype`.
+    layout = manifest.get("expression_layout", "two_column")
+    counts_dtype = manifest["dtype"] if layout == "packed" else None
+    entry = LanceDatasetEntry(name, 0, len(obs), root / "expression.lance", layout, counts_dtype)
     return Corpus(
         expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}),
         metadata_index=MetadataIndex(_metadata(obs, name, 0, 0, factors)),
@@ -74,17 +78,21 @@ def load_standalone(root: Path) -> Corpus:
     )
 
 
-class _ViewExpressionReader(BaseExpressionReader):
-    """Route view-local rows to member readers; retain dataset-local gene indices."""
+class _ViewExpressionReader(SortedTakeReader):
+    """Route view-local rows to member readers; retain dataset-local gene indices.
+
+    Members must be Lance readers (``SortedTakeReader`` subclasses).
+    """
 
     def __init__(self, entries, members):
         super().__init__(entries)
         self.members = dict(members)
 
-    def _read_local_cells(self, entry, local_indices):
-        member = self.members[entry.dataset_id]
-        batch = member.expression_reader.read_expression_flat(local_indices)
-        return [(batch.row_gene_indices(i), batch.row_counts(i)) for i in range(batch.batch_size)]
+    def _take_rows(self, entry, rows):
+        # Each member holds one table, so view-local rows are the member's
+        # global rows. Its blocks join this batch directly, copied only once.
+        reader = self.members[entry.dataset_id].expression_reader
+        return reader._take_rows(reader._entries[0], rows)
 
 
 def concat(
