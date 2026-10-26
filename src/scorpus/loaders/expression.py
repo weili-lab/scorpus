@@ -344,26 +344,32 @@ def _unpack_genes_and_counts(packed: np.ndarray, counts_dtype: str) -> tuple[np.
     return genes, counts
 
 
+# Lance take returns int32-offset lists, so each piece must stay under 2^31 values; 2**17 rows is safe for any corpus with fewer than 16,384 genes.
+_TAKE_PIECE_ROWS = 2**17
+
+
 def _take_lance_rows(
     dataset, rows: np.ndarray, expression_layout: str, counts_dtype: str | None
 ) -> list[_RowBlock]:
-    """Read sorted, distinct ``rows`` of one Lance table with a single ``take``.
+    """Read sorted, distinct ``rows`` of one Lance table, ``take`` by ``take`` of at most ``_TAKE_PIECE_ROWS`` rows.
 
     Returns one block of views per Arrow record batch of the result; nothing is
     copied here.
     """
     blocks = []
-    if expression_layout == "packed":
-        for record_batch in dataset.take(rows, columns=["packed"]).to_batches():
-            offsets, packed = _list_views(record_batch.column(0))
-            genes, counts = _unpack_genes_and_counts(packed, counts_dtype)
-            blocks.append(_RowBlock(offsets, genes, counts, np.dtype(counts_dtype)))
-    else:
-        table = dataset.take(rows, columns=["expressed_gene_indices", "expression_counts"])
-        for record_batch in table.to_batches():
-            offsets, genes = _list_views(record_batch.column(0))
-            counts = record_batch.column(1).flatten().to_numpy()
-            blocks.append(_RowBlock(offsets, genes, counts, counts.dtype))
+    for begin in range(0, len(rows), _TAKE_PIECE_ROWS):
+        piece = rows[begin:begin + _TAKE_PIECE_ROWS]
+        if expression_layout == "packed":
+            for record_batch in dataset.take(piece, columns=["packed"]).to_batches():
+                offsets, packed = _list_views(record_batch.column(0))
+                genes, counts = _unpack_genes_and_counts(packed, counts_dtype)
+                blocks.append(_RowBlock(offsets, genes, counts, np.dtype(counts_dtype)))
+        else:
+            table = dataset.take(piece, columns=["expressed_gene_indices", "expression_counts"])
+            for record_batch in table.to_batches():
+                offsets, genes = _list_views(record_batch.column(0))
+                counts = record_batch.column(1).flatten().to_numpy()
+                blocks.append(_RowBlock(offsets, genes, counts, counts.dtype))
     return blocks
 
 
@@ -374,23 +380,44 @@ def _list_views(list_array) -> tuple[np.ndarray, np.ndarray]:
     return offsets - offsets[0], list_array.flatten().to_numpy()
 
 
+def _fill_small_gaps(rows: np.ndarray, max_gap: int) -> tuple[np.ndarray, np.ndarray]:
+    """Sorted, distinct ``rows`` plus all rows in gaps of at most ``max_gap`` between them.
+
+    Returns the rows to read and the position of each of ``rows`` among them.
+    """
+    gaps = np.diff(rows) - 1
+    filled_after = np.append(np.where(gaps <= max_gap, gaps, 0), 0)
+    rows_read_per_row = 1 + filled_after  # the row itself, then its filled gap
+    positions = np.cumsum(rows_read_per_row) - rows_read_per_row
+    # Position k in the segment that starts at positions[i] holds row rows[i] + (k - positions[i]).
+    rows_to_read = np.repeat(rows - positions, rows_read_per_row) + np.arange(rows_read_per_row.sum())
+    return rows_to_read, positions
+
+
 class SortedTakeReader(BaseExpressionReader):
     """Reader that fetches each table's rows with one sorted read.
 
     Subclasses define how to read sorted, distinct rows of one table
     (``_take_rows``) and, if their tables differ from the routing entries,
-    which tables there are (``_tables``).
+    which tables there are (``_tables``). Set ``reader.max_gap`` to also read
+    gaps of up to that many rows between requested rows (dropped in memory).
     """
+
+    max_gap = 0
 
     def read_expression_flat(
         self, global_indices: Sequence[int]
     ) -> ExpressionBatch:
         """Read the rows in the given order (duplicates allowed) as one batch.
 
-        When the rows are sorted, distinct and from one two-column table, the
-        gene and count arrays are read-only views of Lance's read buffers:
-        copy before modifying them (``.copy()``, or ``torch.as_tensor`` /
-        ``torch.tensor`` rather than ``torch.from_numpy``).
+        ``max_gap`` (default 0): gaps of at most this many rows between
+        requested rows of one table are read too, so each stretch is one
+        contiguous range; the gap rows are dropped and the batch is unchanged.
+
+        When the rows are sorted, distinct, from one two-column table and no
+        gap was filled, the gene and count arrays are read-only views of
+        Lance's read buffers: copy before modifying them (``.copy()``, or
+        ``torch.as_tensor`` / ``torch.tensor`` rather than ``torch.from_numpy``).
         """
         indices = np.array(global_indices, dtype=np.int64)
         if len(indices) == 0:
@@ -408,34 +435,44 @@ class SortedTakeReader(BaseExpressionReader):
             )
 
         # 2. Tables cover consecutive ranges, so each table's rows are one
-        #    consecutive, already sorted slice of `rows`.
+        #    consecutive, already sorted slice of `rows`. Small gaps between
+        #    them are read too; read_position[i] is where distinct row i lies
+        #    among all rows read.
         table_ends = np.searchsorted(rows, stops)
-        jobs = []
+        jobs, read_positions = [], []
+        n_read = 0
         begin = 0
         for table, end in zip(tables, table_ends):
             if end > begin:
-                jobs.append((table, rows[begin:end] - table.global_start))
+                table_rows, positions = _fill_small_gaps(rows[begin:end] - table.global_start, self.max_gap)
+                jobs.append((table, table_rows))
+                read_positions.append(n_read + positions)
+                n_read += len(table_rows)
             begin = end
+        read_position = np.concatenate(read_positions)
 
         # 3-4. One read per table, all tables at the same time.
         with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
             blocks_per_table = list(pool.map(lambda job: self._take_rows(*job), jobs))
         blocks = [block for table_blocks in blocks_per_table for block in table_blocks]
 
-        # 5. For each distinct row (sorted order): its block, and where its
+        # 5. For each row read (sorted order): its block, and where its
         #    values start and stop in that block.
         block_of_row = np.repeat(np.arange(len(blocks)), [len(block.offsets) - 1 for block in blocks])
         row_starts = np.concatenate([block.offsets[:-1] for block in blocks])
         row_stops = np.concatenate([block.offsets[1:] for block in blocks])
 
-        # 6. Put the rows in batch order; genes become int32 and counts the
-        #    tables' common counts dtype.
-        block_of_row, row_starts, row_stops = block_of_row[inverse], row_starts[inverse], row_stops[inverse]
+        # 6. Put the requested rows in batch order (filled gap rows drop out
+        #    here); genes become int32 and counts the tables' common counts dtype.
+        batch_position = read_position[inverse]
+        block_of_row = block_of_row[batch_position]
+        row_starts = row_starts[batch_position]
+        row_stops = row_stops[batch_position]
         row_offsets = np.zeros(len(indices) + 1, dtype=np.int64)
         np.cumsum(row_stops - row_starts, out=row_offsets[1:])
         counts_dtype = np.result_type(*[block.counts_dtype for block in blocks])
-        if len(blocks) == 1 and np.array_equal(inverse, np.arange(len(indices))):
-            # One block already in batch order, so no copy is needed
+        if len(blocks) == 1 and n_read == len(rows) and np.array_equal(inverse, np.arange(len(indices))):
+            # One block already in batch order and no gap filled, so no copy is needed
             # (packed values still need one, to unpack them).
             genes = np.ascontiguousarray(blocks[0].genes, dtype=np.int32)
             counts = np.ascontiguousarray(blocks[0].counts, dtype=counts_dtype)

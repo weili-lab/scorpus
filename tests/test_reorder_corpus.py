@@ -6,6 +6,7 @@ import anndata as ad
 import lance
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 import pytest
 import yaml
 from scipy import sparse
@@ -46,7 +47,8 @@ def write_source_corpus(tmp_path, float_counts):
 
 @pytest.mark.parametrize("float_counts", [False, True])
 def test_reordered_corpus_round_trips_in_both_layouts(tmp_path, monkeypatch, float_counts):
-    monkeypatch.setattr(reorder, "BLOCK_ROWS", 7)  # several blocks per table
+    monkeypatch.setattr(reorder, "FRAGMENT_ROWS", 11)  # several fragments per table
+    monkeypatch.setattr(reorder, "BLOCK_ROWS", 4)  # several blocks per fragment
     source = write_source_corpus(tmp_path, float_counts)
     order, _ = write_order(make_groups(source.obs, ["perturbation", "lane"]), seed=0)
     note = {"by": ["perturbation", "lane"], "seed": 0, "source": "somewhere"}
@@ -75,6 +77,84 @@ def test_reordered_corpus_round_trips_in_both_layouts(tmp_path, monkeypatch, flo
         assert manifest.get("expression_layout", "two_column") == layout
     assert expected.expression_counts.dtype == (np.float32 if float_counts else np.int32)
     assert "packed" in lance.dataset(tmp_path / "packed" / "expression.lance").schema.names
+
+
+def test_parallel_rewrite_equals_serial_row_for_row(tmp_path, monkeypatch):
+    monkeypatch.setattr(reorder, "FRAGMENT_ROWS", 11)
+    write_source_corpus(tmp_path, float_counts=False)
+    order = np.random.default_rng(2).permutation(60)
+    reorder_corpus(tmp_path / "source", tmp_path / "serial", order, {})
+    reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=4)
+    for table in ["expression.lance", "extra/guide_umi.lance"]:
+        serial = lance.dataset(tmp_path / "serial" / table).to_table()
+        assert lance.dataset(tmp_path / "parallel" / table).to_table().equals(serial)
+    for name in ["obs.parquet", "statistics.parquet"]:
+        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "parallel" / name),
+                                      pd.read_parquet(tmp_path / "serial" / name))
+
+
+def test_commit_refuses_fragments_out_of_row_order(tmp_path):
+    first = pa.table({"global_row_index": np.arange(0, 3, dtype=np.int64)})
+    second = pa.table({"global_row_index": np.arange(3, 5, dtype=np.int64)})
+    path = tmp_path / "table.lance"
+    fragments = [lance.fragment.write_fragments(table, str(path), mode="create") for table in [first, second]]
+    with pytest.raises(RuntimeError, match="out of row order"):
+        reorder._commit_in_order(path, first.schema, fragments[1] + fragments[0], n_rows=5)
+
+
+def test_filtered_rewrite_holds_exactly_the_kept_cells(tmp_path, monkeypatch):
+    monkeypatch.setattr(reorder, "FRAGMENT_ROWS", 7)
+    source = write_source_corpus(tmp_path, float_counts=False)
+    groups = make_groups(source.obs, ["perturbation", "lane"])
+    keep = np.sort(np.random.default_rng(3).choice(60, 31, replace=False))
+    order, blocks = write_order(groups, seed=0, keep=keep)
+    reorder_corpus(tmp_path / "source", tmp_path / "filtered", order, {"keep": "random 31 of 60"}, workers=2)
+
+    corpus = load_corpus(tmp_path / "filtered")
+    new_rows = np.arange(31)
+    assert sorted(order.tolist()) == keep.tolist()
+    assert yaml.safe_load((tmp_path / "filtered" / "corpus.yaml").read_text())["shape"] == [31, 30]
+    expected = replace(source.expression_reader.read_expression_flat(order), global_row_index=new_rows)
+    assert_same_batch(corpus.expression_reader.read_expression_flat(new_rows), expected)
+    np.testing.assert_array_equal(corpus.read_extra("guide_umi", new_rows)[0].toarray(),
+                                  source.read_extra("guide_umi", order)[0].toarray())
+    pd.testing.assert_frame_equal(corpus.obs, source.obs.iloc[order])
+    np.testing.assert_array_equal(corpus.metadata_index.df["size_factor"].to_numpy(),
+                                  source.metadata_index.df["size_factor"].to_numpy()[order])
+    rows = lance.dataset(tmp_path / "filtered" / "expression.lance").to_table(columns=["global_row_index", "source_row"])
+    np.testing.assert_array_equal(rows["global_row_index"].to_numpy(), new_rows)
+    np.testing.assert_array_equal(rows["source_row"].to_numpy(), order)
+    # each group is one block of exactly its kept cells
+    for group, start, stop in blocks.select("group", "start", "stop").iter_rows():
+        assert sorted(order[start:stop].tolist()) == sorted(set(groups.rows[group].tolist()) & set(keep.tolist()))
+
+
+@pytest.mark.parametrize("workers, filtered, compression",
+                         [(1, False, {"bin_compression": None}), (3, True, {"bin_compression": None}), (3, True, {})])
+def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch, workers, filtered, compression):
+    # FRAGMENT_ROWS stays above the rows per worker, so there is one chunk (fragment) per worker,
+    # each with several bins holding rows from several pass-1 workers.
+    monkeypatch.setattr(reorder, "FRAGMENT_ROWS", 1000)
+    monkeypatch.setattr(reorder, "BIN_ROWS", 4)
+    monkeypatch.setattr(reorder, "BLOCK_ROWS", 4)  # in this process: several blocks per bin file
+    source = write_source_corpus(tmp_path, float_counts=False)
+    keep = np.sort(np.random.default_rng(3).choice(60, 31, replace=False)) if filtered else None
+    order, _ = write_order(make_groups(source.obs, ["perturbation", "lane"]), seed=0, keep=keep)
+    reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=workers)
+    (tmp_path / "bins_temp").mkdir()
+    reorder_corpus(tmp_path / "source", tmp_path / "bins", order, {}, workers=workers,
+                   method="bins", temp_dir=tmp_path / "bins_temp", **compression)
+
+    for table in ["expression.lance", "extra/guide_umi.lance"]:
+        parallel = lance.dataset(tmp_path / "parallel" / table)
+        bins = lance.dataset(tmp_path / "bins" / table)
+        assert len(parallel.get_fragments()) == len(bins.get_fragments()) == workers
+        assert bins.to_table().equals(parallel.to_table())
+    for name in ["obs.parquet", "statistics.parquet"]:
+        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "bins" / name),
+                                      pd.read_parquet(tmp_path / "parallel" / name))
+    assert (tmp_path / "bins" / "corpus.yaml").read_text() == (tmp_path / "parallel" / "corpus.yaml").read_text()
+    assert list((tmp_path / "bins_temp").iterdir()) == []
 
 
 def test_packing_refuses_what_it_cannot_store_exactly(tmp_path):
