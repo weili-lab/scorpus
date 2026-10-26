@@ -14,8 +14,9 @@ Two ways to gather the rows (``method``):
 - ``"bins"``: two sequential passes through a temporary folder. Pass 1 reads the source in
   consecutive row ranges and appends every row to the bin (an Arrow IPC file) of its new
   position. Pass 2 writes each chunk of the new order from its bins, one bin at a time, each
-  put in new order. The bins are uncompressed (about 8 bytes per nonzero value, 2-3x the Lance
-  table) on temporary disk; a worker holds about one bin of ``BIN_ROWS`` rows in memory.
+  put in new order. The bins are uncompressed by default (about 8 bytes per nonzero value, 2-3x
+  the Lance table) on temporary disk. ``bin_compression`` ("lz4" or "zstd") compresses the IPC
+  buffers; the bin files stay plain Arrow IPC. A worker holds about one bin of ``BIN_ROWS`` rows in memory.
 """
 
 from __future__ import annotations
@@ -43,7 +44,8 @@ BIN_ROWS = 65_536
 
 
 def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: str = "two_column",
-                   workers: int = 1, method: str = "random", temp_dir=None) -> Path:
+                   workers: int = 1, method: str = "random", temp_dir=None,
+                   bin_compression: str | None = None) -> Path:
     """Write the corpus at ``source_root`` to ``dest_root`` with rows ``order``.
 
     ``order`` gives the source row for each new position (``new = old[order]``),
@@ -57,6 +59,7 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
     parallel, each holding one lean reader (about 5-15 GB for a large corpus).
 
     ``method`` is ``"random"`` or ``"bins"`` (module docstring); ``"bins"`` needs ``temp_dir``.
+    ``bin_compression`` is ``None``, ``"lz4"`` or ``"zstd"`` (method ``"bins"`` only).
 
     ``layout="packed"`` writes the expression table as one int64 list column
     ``packed`` with values ``(count_bits << 16) | gene`` (see
@@ -77,14 +80,16 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
         manifest.get("expression_layout", "two_column"), manifest["dtype"],
     )
     _write_reordered_table(source_expression, dest_root / "expression.lance", order,
-                           packed=layout == "packed", workers=workers, method=method, temp_dir=temp_dir)
+                           packed=layout == "packed", workers=workers, method=method, temp_dir=temp_dir,
+                           bin_compression=bin_compression)
     extra = manifest.get("extra", {})
     if extra:
         (dest_root / "extra").mkdir()
     for name in extra:
         source_extra = LanceDatasetEntry(name, 0, n_cells, source_root / "extra" / f"{name}.lance")
         _write_reordered_table(source_extra, dest_root / "extra" / f"{name}.lance", order,
-                               packed=False, workers=workers, method=method, temp_dir=temp_dir)
+                               packed=False, workers=workers, method=method, temp_dir=temp_dir,
+                               bin_compression=bin_compression)
         shutil.copyfile(source_root / "extra" / f"{name}_features.parquet",
                         dest_root / "extra" / f"{name}_features.parquet")
 
@@ -108,7 +113,7 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
 
 
 def _write_reordered_table(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
-                           workers: int, method: str, temp_dir) -> None:
+                           workers: int, method: str, temp_dir, bin_compression: str | None) -> None:
     """Write the rows ``order`` of one table as fragments, then commit them once, in new-row order.
 
     The new order is cut into chunks of consecutive new rows, at least one per worker and at most
@@ -119,7 +124,7 @@ def _write_reordered_table(source: LanceDatasetEntry, dest_path: Path, order: np
         written = _write_through_random_reads(source, dest_path, order, packed, workers, chunk_rows)
     elif method == "bins":
         written = _write_through_bins(source, dest_path, order, packed, workers, chunk_rows,
-                                      Path(temp_dir) / f"{dest_path.stem}_bins")
+                                      Path(temp_dir) / f"{dest_path.stem}_bins", bin_compression)
     else:
         raise ValueError(f"Unknown method {method!r}: use 'random' or 'bins'")
     schema, _ = written[0]  # the same for every chunk of this table
@@ -154,7 +159,8 @@ def _write_through_random_reads(source: LanceDatasetEntry, dest_path: Path, orde
 
 
 def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
-                        workers: int, chunk_rows: int, bins_dir: Path) -> list[tuple[pa.Schema, list]]:
+                        workers: int, chunk_rows: int, bins_dir: Path,
+                        bin_compression: str | None) -> list[tuple[pa.Schema, list]]:
     """Write the rows ``order`` through temporary bins; returns each chunk's fragment.
 
     Chunk ``c`` holds new rows ``c * chunk_rows`` up to ``(c + 1) * chunk_rows``, cut into bins of
@@ -168,7 +174,8 @@ def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.nd
 
     # Pass 1: one consecutive range of source rows per worker, read in order.
     bounds = np.linspace(0, len(destinations), workers + 1).astype(np.int64)
-    _in_processes(_fill_bins, [(source, first, destinations[first:stop], packed, bins_dir, worker, chunk_rows, BIN_ROWS)
+    _in_processes(_fill_bins, [(source, first, destinations[first:stop], packed, bins_dir, worker, chunk_rows, BIN_ROWS,
+                                bin_compression)
                                for worker, (first, stop) in enumerate(zip(bounds[:-1], bounds[1:]))], workers)
 
     # Pass 2: one task per chunk; it streams the chunk's bins, in order, into one fragment.
@@ -180,13 +187,15 @@ def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.nd
 
 
 def _fill_bins(source: LanceDatasetEntry, first_row: int, destinations: np.ndarray, packed: bool,
-               bins_dir: Path, worker: int, chunk_rows: int, bin_rows: int) -> None:
+               bins_dir: Path, worker: int, chunk_rows: int, bin_rows: int,
+               bin_compression: str | None) -> None:
     """Read source rows ``first_row, first_row + 1, ...`` in blocks and append each to the bin of its new position.
 
     ``destinations[i]`` is the new position of source row ``first_row + i``, or -1 to leave it out.
-    ``chunk_rows`` and ``bin_rows`` come from the main process (a spawned worker re-imports this module).
+    ``chunk_rows``, ``bin_rows`` and ``bin_compression`` come from the main process (a spawned worker re-imports this module).
     """
     reader = FederatedLanceReader([source])
+    bin_options = pa.ipc.IpcWriteOptions(compression=bin_compression)  # the reader detects compression itself
     bin_files = {}
     for block_start in range(0, len(destinations), BLOCK_ROWS):
         block_destinations = destinations[block_start:block_start + BLOCK_ROWS]
@@ -198,7 +207,7 @@ def _fill_bins(source: LanceDatasetEntry, first_row: int, destinations: np.ndarr
         for chunk, b in set(zip(chunks[kept].tolist(), bins_in_chunk[kept].tolist())):
             if (chunk, b) not in bin_files:
                 path = bins_dir / f"chunk_{chunk:05d}_bin_{b:03d}_worker_{worker:03d}.arrow"
-                bin_files[chunk, b] = pa.ipc.new_file(str(path), block.schema)
+                bin_files[chunk, b] = pa.ipc.new_file(str(path), block.schema, options=bin_options)
             rows_in_bin = np.flatnonzero(kept & (chunks == chunk) & (bins_in_chunk == b))
             bin_files[chunk, b].write_batch(block.take(rows_in_bin))
     for bin_file in bin_files.values():
