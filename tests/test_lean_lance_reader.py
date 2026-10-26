@@ -14,6 +14,7 @@ from scipy import sparse
 
 from scorpus import concat, from_h5ad, load_corpus
 from scorpus.loaders.expression import AggregateLanceReader, DatasetEntry, FederatedLanceReader, LanceDatasetEntry
+from scorpus.loaders import expression
 
 TWO_COLUMNS = ["expressed_gene_indices", "expression_counts"]
 
@@ -218,6 +219,7 @@ def test_tables_with_different_counts_dtypes_promote_like_concatenation(tmp_path
 
 @pytest.mark.parametrize("max_gap", [0, 1, 4, 10**9])
 def test_max_gap_keeps_batches_and_reads_gaps(tmp_path, monkeypatch, max_gap):
+    monkeypatch.setattr(expression, "_TAKE_PIECE_ROWS", 2)  # several takes per table
     rng = np.random.default_rng(6)
     sizes = [1000, 300, 700]
     starts = np.concatenate([[0], np.cumsum(sizes)[:-1]])

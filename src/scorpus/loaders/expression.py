@@ -344,26 +344,32 @@ def _unpack_genes_and_counts(packed: np.ndarray, counts_dtype: str) -> tuple[np.
     return genes, counts
 
 
+# Lance take returns int32-offset lists, so each piece must stay under 2^31 values; 2**17 rows is safe for any corpus with fewer than 16,384 genes.
+_TAKE_PIECE_ROWS = 2**17
+
+
 def _take_lance_rows(
     dataset, rows: np.ndarray, expression_layout: str, counts_dtype: str | None
 ) -> list[_RowBlock]:
-    """Read sorted, distinct ``rows`` of one Lance table with a single ``take``.
+    """Read sorted, distinct ``rows`` of one Lance table, ``take`` by ``take`` of at most ``_TAKE_PIECE_ROWS`` rows.
 
     Returns one block of views per Arrow record batch of the result; nothing is
     copied here.
     """
     blocks = []
-    if expression_layout == "packed":
-        for record_batch in dataset.take(rows, columns=["packed"]).to_batches():
-            offsets, packed = _list_views(record_batch.column(0))
-            genes, counts = _unpack_genes_and_counts(packed, counts_dtype)
-            blocks.append(_RowBlock(offsets, genes, counts, np.dtype(counts_dtype)))
-    else:
-        table = dataset.take(rows, columns=["expressed_gene_indices", "expression_counts"])
-        for record_batch in table.to_batches():
-            offsets, genes = _list_views(record_batch.column(0))
-            counts = record_batch.column(1).flatten().to_numpy()
-            blocks.append(_RowBlock(offsets, genes, counts, counts.dtype))
+    for begin in range(0, len(rows), _TAKE_PIECE_ROWS):
+        piece = rows[begin:begin + _TAKE_PIECE_ROWS]
+        if expression_layout == "packed":
+            for record_batch in dataset.take(piece, columns=["packed"]).to_batches():
+                offsets, packed = _list_views(record_batch.column(0))
+                genes, counts = _unpack_genes_and_counts(packed, counts_dtype)
+                blocks.append(_RowBlock(offsets, genes, counts, np.dtype(counts_dtype)))
+        else:
+            table = dataset.take(piece, columns=["expressed_gene_indices", "expression_counts"])
+            for record_batch in table.to_batches():
+                offsets, genes = _list_views(record_batch.column(0))
+                counts = record_batch.column(1).flatten().to_numpy()
+                blocks.append(_RowBlock(offsets, genes, counts, counts.dtype))
     return blocks
 
 
