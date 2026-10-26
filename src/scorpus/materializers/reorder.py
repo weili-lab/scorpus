@@ -6,11 +6,21 @@ feature tables are copied unchanged. With ``pairing.write_order`` as the order,
 each group becomes one contiguous block, shuffled within, so ``Sampler(...,
 run_length=r)`` reads runs of neighbouring rows. An order that leaves out rows
 (``write_order(..., keep=...)``) writes a corpus of only those cells.
+
+Two ways to gather the rows (``method``):
+
+- ``"random"``: each worker reads its part of the new order with random reads. Fast on
+  node-local NVMe or RAM; slow on network storage, where every row is a request.
+- ``"bins"``: two sequential passes through a temporary folder. Pass 1 reads the source in
+  consecutive row ranges and appends every row to the bin (an Arrow IPC file) of its new
+  position. Pass 2 loads one bin at a time, puts its rows in new order and writes them.
+  It needs about one table of temporary disk and memory for about one bin per worker.
 """
 
 from __future__ import annotations
 
 import itertools
+import math
 import multiprocessing
 import shutil
 from concurrent.futures import ProcessPoolExecutor
@@ -27,10 +37,12 @@ from ..loaders.expression import FederatedLanceReader, LanceDatasetEntry
 BLOCK_ROWS = 65_536
 # Rows of the new order written by one worker task: about one Lance fragment.
 FRAGMENT_ROWS = 1024 * 1024
+# New rows per temporary bin (method "bins"); a worker holds about one bin in memory.
+BIN_ROWS = 250_000
 
 
 def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: str = "two_column",
-                   workers: int = 1) -> Path:
+                   workers: int = 1, method: str = "random", temp_dir=None) -> Path:
     """Write the corpus at ``source_root`` to ``dest_root`` with rows ``order``.
 
     ``order`` gives the source row for each new position (``new = old[order]``),
@@ -42,6 +54,8 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
     Lance tables get ``global_row_index`` = new position and ``source_row`` =
     original row. ``workers`` processes read and write chunks of the new order in
     parallel, each holding one lean reader (about 5-15 GB for a large corpus).
+
+    ``method`` is ``"random"`` or ``"bins"`` (module docstring); ``"bins"`` needs ``temp_dir``.
 
     ``layout="packed"`` writes the expression table as one int64 list column
     ``packed`` with values ``(count_bits << 16) | gene`` (see
@@ -62,14 +76,14 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
         manifest.get("expression_layout", "two_column"), manifest["dtype"],
     )
     _write_reordered_table(source_expression, dest_root / "expression.lance", order,
-                           packed=layout == "packed", workers=workers)
+                           packed=layout == "packed", workers=workers, method=method, temp_dir=temp_dir)
     extra = manifest.get("extra", {})
     if extra:
         (dest_root / "extra").mkdir()
     for name in extra:
         source_extra = LanceDatasetEntry(name, 0, n_cells, source_root / "extra" / f"{name}.lance")
         _write_reordered_table(source_extra, dest_root / "extra" / f"{name}.lance", order,
-                               packed=False, workers=workers)
+                               packed=False, workers=workers, method=method, temp_dir=temp_dir)
         shutil.copyfile(source_root / "extra" / f"{name}_features.parquet",
                         dest_root / "extra" / f"{name}_features.parquet")
 
@@ -93,27 +107,98 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
 
 
 def _write_reordered_table(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
-                           workers: int) -> None:
-    """Write the rows ``order`` of one table as fragments of ``FRAGMENT_ROWS`` rows, committed once in order.
-
-    Each worker writes a contiguous range of chunks with one lean reader, so the workers'
-    fragments, concatenated, are in row order. Workers are spawned, not forked, because
-    Lance is not fork-safe; ``workers=1`` writes in this process.
-    """
-    starts = list(range(0, len(order), FRAGMENT_ROWS))
-    chunks = [order[start:start + FRAGMENT_ROWS] for start in starts]
-    if workers == 1:
-        written = [_write_chunks(source, dest_path, starts, chunks, packed)]
+                           workers: int, method: str, temp_dir) -> None:
+    """Write the rows ``order`` of one table as fragments, then commit them once, in new-row order."""
+    if method == "random":
+        written = _write_through_random_reads(source, dest_path, order, packed, workers)
+    elif method == "bins":
+        written = _write_through_bins(source, dest_path, order, packed, workers,
+                                      Path(temp_dir) / f"{dest_path.stem}_bins")
     else:
-        worker_chunks = np.array_split(np.arange(len(chunks)), min(workers, len(chunks)))
-        with ProcessPoolExecutor(len(worker_chunks), mp_context=multiprocessing.get_context("spawn")) as pool:
-            futures = [pool.submit(_write_chunks, source, dest_path,
-                                   [starts[i] for i in ids], [chunks[i] for i in ids], packed)
-                       for ids in worker_chunks]
-            written = [future.result() for future in futures]
+        raise ValueError(f"Unknown method {method!r}: use 'random' or 'bins'")
     schema, _ = written[0]  # the same for every chunk of this table
     fragments = [fragment for _, worker_fragments in written for fragment in worker_fragments]
     _commit_in_order(dest_path, schema, fragments, len(order))
+
+
+def _in_processes(function, tasks: list[tuple], workers: int) -> list:
+    """``[function(*task) for task in tasks]`` in ``workers`` processes; ``workers=1`` runs here.
+
+    Processes are spawned, not forked, because Lance is not fork-safe.
+    """
+    if workers == 1:
+        return [function(*task) for task in tasks]
+    with ProcessPoolExecutor(workers, mp_context=multiprocessing.get_context("spawn")) as pool:
+        return list(pool.map(function, *zip(*tasks)))
+
+
+def _write_through_random_reads(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
+                                workers: int) -> list[tuple[pa.Schema, list]]:
+    """Write the rows ``order`` in chunks of about one fragment; returns each worker's fragments.
+
+    Each worker writes a contiguous range of chunks with one lean reader, so the workers'
+    fragments, concatenated, are in row order.
+    """
+    starts = list(range(0, len(order), FRAGMENT_ROWS))
+    chunks = [order[start:start + FRAGMENT_ROWS] for start in starts]
+    worker_chunks = np.array_split(np.arange(len(chunks)), min(workers, len(chunks)))
+    tasks = [(source, dest_path, [starts[i] for i in ids], [chunks[i] for i in ids], packed)
+             for ids in worker_chunks]
+    return _in_processes(_write_chunks, tasks, len(tasks))
+
+
+def _write_through_bins(source: LanceDatasetEntry, dest_path: Path, order: np.ndarray, packed: bool,
+                        workers: int, bins_dir: Path) -> list[tuple[pa.Schema, list]]:
+    """Write the rows ``order`` through temporary bins of ``BIN_ROWS`` new rows; returns each bin's fragments.
+
+    Bin ``b`` holds new rows ``b * BIN_ROWS`` up to ``(b + 1) * BIN_ROWS``, in one file per pass-1
+    worker, so no two processes write the same file.
+    """
+    bins_dir.mkdir()
+    # New position of every source row; -1 for rows the order leaves out.
+    destinations = np.full(source.global_end, -1, dtype=np.int64)
+    destinations[order] = np.arange(len(order))
+
+    # Pass 1: one consecutive range of source rows per worker, read in order.
+    bounds = np.linspace(0, len(destinations), workers + 1).astype(np.int64)
+    _in_processes(_fill_bins, [(source, first, destinations[first:stop], packed, bins_dir, worker, BIN_ROWS)
+                               for worker, (first, stop) in enumerate(zip(bounds[:-1], bounds[1:]))], workers)
+
+    # Pass 2: one bin at a time, in new-row order.
+    n_bins = math.ceil(len(order) / BIN_ROWS)
+    written = _in_processes(_write_bin, [(bins_dir, dest_path, b) for b in range(n_bins)], workers)
+    shutil.rmtree(bins_dir)
+    return written
+
+
+def _fill_bins(source: LanceDatasetEntry, first_row: int, destinations: np.ndarray, packed: bool,
+               bins_dir: Path, worker: int, bin_rows: int) -> None:
+    """Read source rows ``first_row, first_row + 1, ...`` in blocks and append each to the bin of its new position.
+
+    ``destinations[i]`` is the new position of source row ``first_row + i``, or -1 to leave it out.
+    ``bin_rows`` comes from the main process (a spawned worker re-imports this module).
+    """
+    reader = FederatedLanceReader([source])
+    bin_files = {}
+    for block_start in range(0, len(destinations), BLOCK_ROWS):
+        block_destinations = destinations[block_start:block_start + BLOCK_ROWS]
+        source_rows = np.arange(first_row + block_start, first_row + block_start + len(block_destinations))
+        block = _record_batch(reader.read_expression_flat(source_rows), block_destinations, source_rows, packed)
+        block_bins = block_destinations // bin_rows  # -1 for rows left out
+        for b in np.unique(block_bins[block_bins >= 0]):
+            if b not in bin_files:
+                bin_files[b] = pa.ipc.new_file(str(bins_dir / f"bin_{b:06d}_worker_{worker:03d}.arrow"), block.schema)
+            bin_files[b].write_batch(block.take(np.flatnonzero(block_bins == b)))
+    for bin_file in bin_files.values():
+        bin_file.close()
+
+
+def _write_bin(bins_dir: Path, dest_path: Path, b: int) -> tuple[pa.Schema, list]:
+    """Load bin ``b`` from all pass-1 workers, sort its rows by new position, and write them as fragments."""
+    pieces = [pa.ipc.open_file(str(path)).read_all() for path in bins_dir.glob(f"bin_{b:06d}_worker_*.arrow")]
+    rows = pa.concat_tables(pieces)
+    rows = rows.take(np.argsort(rows["global_row_index"].to_numpy()))
+    return _write_fragments(dest_path, iter(rows.to_batches(max_chunksize=BLOCK_ROWS)))
 
 
 def _write_chunks(source: LanceDatasetEntry, dest_path: Path, starts: list[int], chunks: list[np.ndarray],
@@ -135,20 +220,25 @@ def _reordered_batches(reader: FederatedLanceReader, start: int, source_rows: np
     for block_start in range(0, len(source_rows), BLOCK_ROWS):
         block_rows = source_rows[block_start:block_start + BLOCK_ROWS]
         # Rows come back in the requested order (the reader restores it after its sorted take).
-        batch = reader.read_expression_flat(block_rows)
-        offsets = pa.array(batch.row_offsets, type=pa.int32())
         first_new_row = start + block_start
-        columns = {
-            "global_row_index": pa.array(np.arange(first_new_row, first_new_row + len(block_rows), dtype=np.int64)),
-            "source_row": pa.array(block_rows),
-        }
-        if packed:
-            values = _pack(batch.expressed_gene_indices, batch.expression_counts)
-            columns["packed"] = pa.ListArray.from_arrays(offsets, pa.array(values))
-        else:
-            columns["expressed_gene_indices"] = pa.ListArray.from_arrays(offsets, pa.array(batch.expressed_gene_indices))
-            columns["expression_counts"] = pa.ListArray.from_arrays(offsets, pa.array(batch.expression_counts))
-        yield pa.RecordBatch.from_pydict(columns)
+        new_rows = np.arange(first_new_row, first_new_row + len(block_rows), dtype=np.int64)
+        yield _record_batch(reader.read_expression_flat(block_rows), new_rows, block_rows, packed)
+
+
+def _record_batch(batch, new_rows: np.ndarray, source_rows: np.ndarray, packed: bool) -> pa.RecordBatch:
+    """One record batch of the new table from an ``ExpressionBatch`` read at ``source_rows``."""
+    offsets = pa.array(batch.row_offsets, type=pa.int32())
+    columns = {
+        "global_row_index": pa.array(new_rows),
+        "source_row": pa.array(source_rows),
+    }
+    if packed:
+        values = _pack(batch.expressed_gene_indices, batch.expression_counts)
+        columns["packed"] = pa.ListArray.from_arrays(offsets, pa.array(values))
+    else:
+        columns["expressed_gene_indices"] = pa.ListArray.from_arrays(offsets, pa.array(batch.expressed_gene_indices))
+        columns["expression_counts"] = pa.ListArray.from_arrays(offsets, pa.array(batch.expression_counts))
+    return pa.RecordBatch.from_pydict(columns)
 
 
 def _write_fragments(dest_path: Path, batches) -> tuple[pa.Schema, list]:

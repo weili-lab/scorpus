@@ -3,10 +3,14 @@
 ``estimate`` reports how much would be copied, ``stage`` copies and keeps the
 copies, and ``staged`` copies on entry and deletes the copies on exit.
 Each corpus folder ``<root>`` is copied to ``<target_dir>/<root.name>``.
+
+A target under ``/dev/shm`` stages into RAM: the copies count against the job's
+memory limit, so ``stage`` also refuses a copy that would not fit in it.
 """
 
 from __future__ import annotations
 
+import math
 import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +24,7 @@ RANGE_BYTES = 64 * 1024 * 1024
 THREADS = 32
 # Rough copy speed for the time estimate, measured once on beacon (low end).
 ASSUMED_BYTES_PER_SECOND = 1.2e9
+RAM_DIR = Path("/dev/shm")
 
 
 def _files(root: Path) -> list[Path]:
@@ -41,6 +46,28 @@ def estimate(corpus_roots: Sequence[str | Path], target_dir: str | Path) -> dict
     }
 
 
+def _memory_headroom() -> float:
+    """Bytes this process can still add to its memory before the job's limit (cgroup v2).
+
+    Files in ``/dev/shm`` are charged to the cgroup of the process that writes them. The
+    limit can be set on any ancestor cgroup (Slurm on beacon sets it on ``.../step_*/user``,
+    not on the task's own cgroup), so this is the smallest headroom over all of them;
+    ``inf`` if none has a limit. Page cache (``active_file``, ``inactive_file``) is not
+    counted as used, because the kernel drops it before running out of memory.
+    """
+    cgroup_root = Path("/sys/fs/cgroup")
+    directory = cgroup_root / Path("/proc/self/cgroup").read_text().strip().removeprefix("0::/")
+    headroom = math.inf
+    while directory != cgroup_root:
+        limit = (directory / "memory.max").read_text().strip()
+        if limit != "max":
+            stat = dict(line.split() for line in (directory / "memory.stat").read_text().splitlines())
+            used = int((directory / "memory.current").read_text()) - int(stat["active_file"]) - int(stat["inactive_file"])
+            headroom = min(headroom, int(limit) - used)
+        directory = directory.parent
+    return headroom
+
+
 def _copy_range(source: Path, destination: Path, offset: int) -> None:
     # pread/pwrite may move fewer bytes than asked (e.g. on NFS), so loop until the range is done.
     with open(source, "rb", buffering=0) as src, open(destination, "r+b", buffering=0) as dst:
@@ -58,7 +85,8 @@ def _copy_range(source: Path, destination: Path, offset: int) -> None:
 def stage(corpus_roots: Sequence[str | Path], target_dir: str | Path) -> list[Path]:
     """Copy each corpus folder into ``target_dir`` and return the staged roots.
 
-    Refuses before copying anything if the corpora do not fit in the free space.
+    Refuses before copying anything if the corpora do not fit in the free space, or,
+    for a target under ``/dev/shm`` (RAM), in the job's memory limit.
     """
     roots = [Path(root) for root in corpus_roots]
     target = Path(target_dir)
@@ -68,6 +96,13 @@ def stage(corpus_roots: Sequence[str | Path], target_dir: str | Path) -> list[Pa
             f"Staging needs {needed['bytes'] / 1e9:.1f} GB but {target} has "
             f"{needed['free_bytes'] / 1e9:.1f} GB free"
         )
+    if target.resolve().is_relative_to(RAM_DIR):
+        headroom = _memory_headroom()
+        if needed["bytes"] > headroom:
+            raise OSError(
+                f"Staging into RAM needs {needed['bytes'] / 1e9:.1f} GB but the job's memory limit "
+                f"leaves {headroom / 1e9:.1f} GB"
+            )
     # Every file is created at full size first, then its 64 MB ranges are
     # copied in parallel across all files.
     staged_roots = [target / root.name for root in roots]

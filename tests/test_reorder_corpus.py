@@ -129,6 +129,28 @@ def test_filtered_rewrite_holds_exactly_the_kept_cells(tmp_path, monkeypatch):
         assert sorted(order[start:stop].tolist()) == sorted(set(groups.rows[group].tolist()) & set(keep.tolist()))
 
 
+@pytest.mark.parametrize("workers, filtered", [(1, False), (3, True)])
+def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch, workers, filtered):
+    monkeypatch.setattr(reorder, "BIN_ROWS", 7)  # several bins, each with rows from several workers
+    monkeypatch.setattr(reorder, "BLOCK_ROWS", 4)  # in this process: several blocks per bin file
+    source = write_source_corpus(tmp_path, float_counts=False)
+    keep = np.sort(np.random.default_rng(3).choice(60, 31, replace=False)) if filtered else None
+    order, _ = write_order(make_groups(source.obs, ["perturbation", "lane"]), seed=0, keep=keep)
+    reorder_corpus(tmp_path / "source", tmp_path / "parallel", order, {}, workers=2)
+    (tmp_path / "bins_temp").mkdir()
+    reorder_corpus(tmp_path / "source", tmp_path / "bins", order, {}, workers=workers,
+                   method="bins", temp_dir=tmp_path / "bins_temp")
+
+    for table in ["expression.lance", "extra/guide_umi.lance"]:
+        parallel = lance.dataset(tmp_path / "parallel" / table).to_table()
+        assert lance.dataset(tmp_path / "bins" / table).to_table().equals(parallel)
+    for name in ["obs.parquet", "statistics.parquet"]:
+        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "bins" / name),
+                                      pd.read_parquet(tmp_path / "parallel" / name))
+    assert (tmp_path / "bins" / "corpus.yaml").read_text() == (tmp_path / "parallel" / "corpus.yaml").read_text()
+    assert list((tmp_path / "bins_temp").iterdir()) == []
+
+
 def test_packing_refuses_what_it_cannot_store_exactly(tmp_path):
     genes = np.array([1, 2], dtype=np.int32)
     np.testing.assert_array_equal(reorder._pack(genes, np.array([3.0, 70_000.0])),

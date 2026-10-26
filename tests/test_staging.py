@@ -42,6 +42,14 @@ def test_stage_refuses_when_it_does_not_fit(tmp_path, monkeypatch):
     assert list((tmp_path / "nvme").iterdir()) == []
 
 
+def test_stage_into_ram_refuses_what_exceeds_the_memory_limit(tmp_path, monkeypatch):
+    root = write_corpus(tmp_path, name=tmp_path.name)
+    monkeypatch.setattr(staging, "_memory_headroom", lambda: 1000)  # a job with 1 kB of memory left
+    with pytest.raises(OSError, match="Staging into RAM needs"):
+        staging.stage([root], "/dev/shm")
+    assert not (staging.RAM_DIR / root.name).exists()
+
+
 def test_staged_deletes_copies_on_exit(tmp_path):
     root = write_corpus(tmp_path)
     (tmp_path / "nvme").mkdir()
