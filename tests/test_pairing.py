@@ -382,6 +382,26 @@ def test_write_order():
     assert np.abs(correlations).max() < 0.2
 
 
+def test_write_order_keeps_only_the_given_rows():
+    """With keep, each group holds exactly its kept rows, shuffled; a group with none kept is dropped."""
+    table = pd.DataFrame({"perturbation": ["B", "A", None] * 1000, "lane": [1, 2] * 1500})
+    groups = make_groups(table, by=["perturbation", "lane"])
+    rng = np.random.default_rng(1)
+    dropped_group = groups.table.filter(pl.col("perturbation") == "A", pl.col("lane") == 2)["group"].item()
+    keep = rng.permutation(np.setdiff1d(np.arange(3000), groups.rows[dropped_group]))[:1200]
+    order, blocks = write_order(groups, seed=0, keep=keep)
+
+    assert sorted(order.tolist()) == sorted(keep.tolist())
+    assert blocks.select("perturbation", "lane").rows() == [(None, 1), (None, 2), ("A", 1), ("B", 1), ("B", 2)]
+    for group, start, stop in blocks.select("group", "start", "stop").iter_rows():
+        assert set(order[start:stop]) == set(groups.rows[group]) & set(keep.tolist())
+        assert np.abs(np.corrcoef(np.arange(stop - start), order[start:stop])[0, 1]) < 0.2
+    assert blocks["stop"][-1] == len(keep)
+
+    # keeping every row is the same as no keep
+    np.testing.assert_array_equal(write_order(groups, seed=0, keep=np.arange(3000))[0], write_order(groups, seed=0)[0])
+
+
 def run_breaks(rows: list[int], first_row: int, group_size: int) -> int:
     """Places where the next cell is not the next row of its group (wrapping): runs - 1."""
     position = np.asarray(rows) - first_row

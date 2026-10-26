@@ -46,7 +46,7 @@ def make_groups(table, by: list[str]) -> Groups:
     return Groups(group_table, rows, frame.height, list(by))
 
 
-def write_order(groups: Groups, seed: int) -> tuple[np.ndarray, pl.DataFrame]:
+def write_order(groups: Groups, seed: int, keep=None) -> tuple[np.ndarray, pl.DataFrame]:
     """A row order for rewriting a table so that every group is one contiguous block, shuffled within.
 
     Groups are placed in order of their grouping columns (missing values first), and the rows
@@ -54,12 +54,23 @@ def write_order(groups: Groups, seed: int) -> tuple[np.ndarray, pl.DataFrame]:
     each new position (``new_table = old_table[order]``), and the group table in the new order
     with each group's block ``[start, stop)`` in the new table.
 
+    ``keep``: row positions to keep (for example the cells passing a QC filter computed by the
+    user); each group keeps only its rows in ``keep``, and groups left empty are dropped. Build
+    ``groups`` from the full table, so its positions are the rows that ``keep`` refers to.
+
     On a table written in this order, ``Sampler(..., run_length=r)`` reads runs of neighbouring
     rows, and each run is a uniform random subset of its group.
     """
     rng = np.random.default_rng(seed)
     table = groups.table.sort(groups.by, maintain_order=True)
-    blocks = [rng.permutation(groups.rows[g]) for g in table["group"].to_list()]
+    rows = groups.rows
+    if keep is not None:
+        kept = np.zeros(groups.n_rows, dtype=bool)
+        kept[keep] = True
+        rows = [group_rows[kept[group_rows]] for group_rows in rows]
+        n_kept = pl.Series([len(rows[g]) for g in table["group"].to_list()], dtype=pl.Int64)
+        table = table.with_columns(n_cells=n_kept).filter(pl.col("n_cells") > 0)
+    blocks = [rng.permutation(rows[g]) for g in table["group"].to_list()]
     n_cells = table["n_cells"].to_numpy()
     stop = np.cumsum(n_cells)
     return np.concatenate(blocks), table.with_columns(start=pl.Series(stop - n_cells), stop=pl.Series(stop))
