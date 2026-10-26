@@ -198,6 +198,12 @@ for rows in cells(groups, epoch=0, batch_size=256, same_group=True):
 Read the rows with `corpus.expression_reader.read_expression_flat(rows.tolist())`, and use
 `scorpus.loaders.dense_counts` for dense counts on the corpus gene axis.
 
+Cells filtered out at read time leave gaps between the rows of a group, and each stretch
+between gaps becomes a separate, slow read on network storage.
+`corpus.expression_reader.max_gap = 4` (Lance; default 0) also reads gaps of up to 4 rows and
+drops them in memory, so batches are unchanged, but memory per read grows up to about
+1 / (fraction of cells kept). `reorder_corpus(..., keep=rows)` removes the gaps for good.
+
 ## Speed (1M cells, 10,000 pairs)
 
 | | time |

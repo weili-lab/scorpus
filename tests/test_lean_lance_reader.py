@@ -214,3 +214,42 @@ def test_tables_with_different_counts_dtypes_promote_like_concatenation(tmp_path
     assert expected_counts.dtype == np.float64
     assert batch.expression_counts.dtype == np.float64
     np.testing.assert_array_equal(batch.expression_counts, expected_counts)
+
+
+@pytest.mark.parametrize("max_gap", [0, 1, 4, 10**9])
+def test_max_gap_keeps_batches_and_reads_gaps(tmp_path, monkeypatch, max_gap):
+    rng = np.random.default_rng(6)
+    sizes = [1000, 300, 700]
+    starts = np.concatenate([[0], np.cumsum(sizes)[:-1]])
+    entries = []
+    for i, (start, size) in enumerate(zip(starts, sizes)):
+        write_table(str(tmp_path / f"table_{i}.lance"), *random_rows(rng, size, np.int32), rows_per_file=250)
+        entries.append(LanceDatasetEntry(f"table_{i}", int(start), int(start + size), tmp_path / f"table_{i}.lance"))
+    reference = FederatedLanceReader(entries)
+    reader = FederatedLanceReader(entries)
+    reader.max_gap = max_gap
+    rows_taken = []
+    take_rows = reader._take_rows
+
+    def recording_take_rows(table, rows):
+        rows_taken.append(len(rows))
+        return take_rows(table, rows)
+
+    monkeypatch.setattr(reader, "_take_rows", recording_take_rows)
+    random_order = rng.choice(2000, 300, replace=False)
+    batches = [
+        random_order.tolist(),  # all tables, any order
+        list(random_order[::-1]) + list(random_order[:40]),  # duplicates
+        list(range(100, 900, 3)),  # sorted, distinct rows of one table: no-copy path without filling
+        list(range(950, 1100, 2)) + [5, 5, 1999],  # gaps across a table boundary are never filled
+    ]
+    for indices in batches:
+        rows_taken.clear()
+        assert_same_batch(reader.read_expression_flat(indices), reference.read_expression_flat(indices))
+        # Rows read: the distinct requested rows plus every gap of at most max_gap rows inside a table.
+        expected = 0
+        for start, size in zip(starts, sizes):
+            rows = np.unique([i for i in indices if start <= i < start + size])
+            gaps = np.diff(rows) - 1
+            expected += len(rows) + gaps[gaps <= max_gap].sum()
+        assert sum(rows_taken) == expected
