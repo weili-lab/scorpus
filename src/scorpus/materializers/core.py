@@ -415,7 +415,9 @@ class DatasetMaterializer:
             is_last_dataset = (
                 self._is_last_dataset if self.topology == "aggregate" else True
             )
-            is_last_chunk = (chunk_end == n_obs) and is_last_dataset
+            # Lance commits each dataset as one streamed append, so its output
+            # exists for the check after this loop; zarr stays open across datasets.
+            is_last_chunk = (chunk_end == n_obs) and (is_last_dataset or self.backend == "lance")
             matrix_chunk = _slice_matrix_chunk_as_csr(count_matrix, chunk_start, chunk_end)
             bundle = _translate_chunk(
                 dataset_id=self.dataset_id,

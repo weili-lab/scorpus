@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import queue
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -57,22 +59,61 @@ def _write_lance(
     _is_last_chunk: bool,
     append_existing: bool,
 ) -> tuple[dict[str, Path], dict[str, Any] | None]:
+    """Stream all chunks of one table into a single ``lance.write_dataset`` call.
+
+    The first chunk starts the write in a background thread that reads chunks from
+    a small queue; the last chunk closes the stream and waits for the commit. The
+    table is therefore committed once, as one version with Lance's default ~1M-row
+    fragments. Appending chunk by chunk would make one fragment, version and
+    transaction file per chunk, and many small fragments slow random ``take``.
+    If the caller stops before its last chunk, nothing is committed.
+    """
     lance = _import_lance()
-    lance_path.parent.mkdir(parents=True, exist_ok=True)
+    table = _bundle_to_table(bundle)
 
     if _writer_state is None:
+        lance_path.parent.mkdir(parents=True, exist_ok=True)
         mode = "append" if append_existing and lance_path.exists() else "create"
-        _writer_state = {"lance_path": str(lance_path)}
-    else:
-        mode = "append"
+        chunks: queue.Queue = queue.Queue(maxsize=2)
+        _writer_state = {"lance_path": str(lance_path), "queue": chunks, "errors": []}
 
-    lance.write_dataset(
-        _bundle_to_table(bundle),
-        str(lance_path),
-        mode=mode,
-        max_rows_per_group=4096,
-    )
-    return {"cells": lance_path}, None if _is_last_chunk else _writer_state
+        def batches():
+            while (item := chunks.get()) is not _END_OF_STREAM:
+                yield from item.to_batches()
+
+        def write():
+            try:
+                reader = pa.RecordBatchReader.from_batches(table.schema, batches())
+                lance.write_dataset(reader, str(lance_path), mode=mode)
+            except BaseException as exc:  # handed to the caller's thread by _put / the final join
+                _writer_state["errors"].append(exc)
+
+        # Daemon, so a write abandoned by a failed caller cannot keep the process alive.
+        _writer_state["thread"] = threading.Thread(target=write, daemon=True)
+        _writer_state["thread"].start()
+
+    _put(_writer_state, table)
+    if not _is_last_chunk:
+        return {"cells": lance_path}, _writer_state
+    _put(_writer_state, _END_OF_STREAM)
+    _writer_state["thread"].join()
+    if _writer_state["errors"]:
+        raise _writer_state["errors"][0]
+    return {"cells": lance_path}, None
+
+
+_END_OF_STREAM = object()
+
+
+def _put(state: dict[str, Any], item: Any) -> None:
+    """Queue one item for the writer thread; raise its error if it has died."""
+    while True:
+        try:
+            state["queue"].put(item, timeout=1)
+            return
+        except queue.Full:
+            if not state["thread"].is_alive():
+                raise state["errors"][0]
 
 
 def write_lance_federated(
