@@ -23,8 +23,12 @@ with staged(["source.corpus"], "/scratch1/me/job") as [local_source]:
 
 ## Choosing a route
 
-Every route gives the same corpus, row for row. Timings, memory and temporary disk for
-each route have not been measured yet.
+Every route gives the same corpus, row for row. Measured on beacon (one run per setting):
+Replogle (3.9M cells) wrote in 94 s with NVMe staging at 8 workers (489 s with 1 worker),
+140-148 s with zstd bins, 192 s with uncompressed bins and 424 s with plain network reads;
+RAM staging took 117 s including the copy, written to NVMe. Marson (33.7M cells) wrote in
+734 s with NVMe staging at 11 workers and 987 s with zstd bins at 16 workers. Prefer NVMe
+staging when the node has the space, otherwise bins; RAM was not compared with zstd bins.
 
 | Route | Call | Needs |
 |---|---|---|
