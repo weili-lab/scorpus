@@ -15,7 +15,7 @@ The handoff API has three parts:
 ```python
 adata = corpus.to_anndata(dataset_id="replogle_k562")
 adata = corpus.to_anndata(global_row_indices=[10, 25, 10])
-adata = corpus.to_anndata_lazy(dataset_id="replogle_k562", chunk_rows=4096)
+adata = corpus.to_anndata_lazy(dataset_id="replogle_k562")
 corpus.add_obs_meta(frame)
 corpus.save_ex_obs()
 ```
@@ -107,9 +107,13 @@ and be read in chunks by Dask:
 adata = corpus.to_anndata_lazy(
     dataset_id="replogle_k562",
     obs_columns=["perturb_label", "donor_id", "batch_id"],
-    chunk_rows=4096,
 )
 ```
+
+Each Dask chunk holds `chunk_rows` cells (default 65,536), the same for
+`write_h5ad(...)`. Larger chunks mean fewer Dask tasks; a chunk of 65,536 cells
+at 3,000 nonzeros per cell is about 1.5-2.5 GB in memory, so lower `chunk_rows`
+when a worker or GPU runs short of memory.
 
 Only `adata.X` is lazy. `adata.obs` and `adata.var` are loaded in memory because
 they are small compared with the count matrix.
@@ -123,20 +127,19 @@ the active corpus backend:
 This keeps the handoff lightweight: no new AnnData-Zarr copy is required just to
 let AnnData hold a Dask-backed `X`.
 
-For GPU workflows, `to_anndata_lazy(..., device="cuda")` makes each Dask task
-build a CuPy CSR chunk directly:
+For GPU workflows, `to_anndata_lazy(..., device="cuda")` (or `"cuda:<index>"`)
+makes each Dask task return a CuPy CSR chunk. This works for standalone corpora
+(`from_h5ad`), `concat` views (with any `var_join`), and the older canonical
+corpora:
 
 ```python
-adata = corpus.to_anndata_lazy(
-    dataset_id="replogle_k562",
-    chunk_rows=4096,
-    device="cuda",
-)
+adata = corpus.to_anndata_lazy(device="cuda")
 ```
 
-This still reads Lance/Zarr buffers through CPU memory before the CPU-to-GPU
-transfer, but it avoids constructing an intermediate SciPy CSR matrix inside the
-Dask task. It requires a working CUDA/CuPy runtime.
+Each chunk is still read into CPU memory and then copied to the GPU once.
+CuPy sparse matrices cannot hold integers, so integer counts arrive as float32
+on the GPU (exact up to 16,777,216); float matrices keep their dtype. It requires
+CuPy and a working CUDA runtime.
 
 ## Scanpy example
 
@@ -160,7 +163,7 @@ Scanpy function you are calling. Scanpy Dask support is function-specific.
 ```python
 import rapids_singlecell as rsc
 
-rsc.get.anndata_to_GPU(adata)
+rsc.get.anndata_to_GPU(adata)  # in-memory AnnData; skip for a device="cuda" lazy export
 rsc.pp.normalize_total(adata, target_sum=1e4)
 rsc.pp.log1p(adata)
 rsc.pp.highly_variable_genes(adata, n_top_genes=2000)

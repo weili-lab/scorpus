@@ -207,29 +207,28 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         obs_columns: Sequence[str] | None = None,
-        chunk_rows: int = 4096,
+        chunk_rows: int = 65_536,
         device: str = "cpu",
         var_join: Literal["inner", "exact", "outer"] = "exact",
     ):
         """Export whole selected dataset(s) as AnnData with Dask-backed ``X``.
 
         Only ``X`` is lazy. Observation and feature metadata are loaded in
-        memory because they are small compared with the count matrix.
+        memory because they are small compared with the count matrix. With
+        ``device="cuda"`` each chunk is a CuPy CSR matrix.
         """
         import anndata as ad
 
+        lazy_device = _normalize_lazy_device(device)
         if self.obs_frames:
             from .composition import view_to_anndata
 
-            if device != "cpu":
-                raise ValueError("Metadata-view AnnData currently supports device='cpu'")
             return view_to_anndata(
                 self, dataset_id=dataset_id, obs_columns=obs_columns,
-                var_join=var_join, lazy=True, chunk_rows=chunk_rows,
+                var_join=var_join, lazy=True, chunk_rows=chunk_rows, device=lazy_device,
             )
         if int(chunk_rows) <= 0:
             raise ValueError("chunk_rows must be positive")
-        lazy_device = _normalize_lazy_device(device)
         if dataset_id is None:
             dataset_id = self.dataset_ids
         selected = _normalize_dataset_selection(dataset_id)
@@ -251,7 +250,7 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         var_join: Literal["inner", "exact", "outer"] = "exact",
-        chunk_rows: int = 4096,
+        chunk_rows: int = 65_536,
     ) -> None:
         """Write a new h5ad through AnnData's chunked Dask writer.
 
@@ -832,11 +831,11 @@ def _cupy_device_id(device: str) -> int:
     return int(device.split(":", 1)[1])
 
 
-def _lazy_sparse_meta(device: str):
+def _lazy_sparse_meta(device: str, dtype=np.float32):
     if device == "cpu":
         from scipy import sparse
 
-        return sparse.csr_matrix((0, 0), dtype=np.float32)
+        return sparse.csr_matrix((0, 0), dtype=dtype)
 
     try:
         import cupy as cp
@@ -846,7 +845,7 @@ def _lazy_sparse_meta(device: str):
 
     try:
         with cp.cuda.Device(_cupy_device_id(device)):
-            return cupyx_sparse.csr_matrix((0, 0), dtype=cp.float32)
+            return cupyx_sparse.csr_matrix((0, 0), dtype=dtype)
     except Exception as exc:
         raise RuntimeError("device='cuda' requires a working CUDA/CuPy runtime") from exc
 

@@ -11,7 +11,7 @@ import polars as pl
 import yaml
 from scipy import sparse
 
-from .corpus_loader import Corpus, ex_path
+from .corpus_loader import Corpus, _cupy_device_id, _lazy_sparse_meta, ex_path
 from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
@@ -209,24 +209,35 @@ def concat(
     )
 
 
-def _read_aligned(reader, indices, local_to_output, width):
+def _read_aligned(reader, indices, local_to_output, width, dtype=None, device="cpu"):
     batch = reader.read_expression_flat(list(indices))
     columns = local_to_output[batch.expressed_gene_indices]
     keep = columns >= 0
     # Prefix sums work for consecutive empty rows and a trailing empty row.
     prefix = np.concatenate(([0], np.cumsum(keep, dtype=np.int64)))
     offsets = prefix[batch.row_offsets]
-    return sparse.csr_matrix(
+    matrix = sparse.csr_matrix(
         (batch.expression_counts[keep], columns[keep], offsets),
-        shape=(len(indices), width),
+        shape=(len(indices), width), dtype=dtype,
     )
+    if device == "cpu":
+        return matrix
+    import cupy as cp
+    from cupyx.scipy import sparse as cupyx_sparse
+
+    with cp.cuda.Device(_cupy_device_id(device)):
+        return cupyx_sparse.csr_matrix(matrix)
 
 
 def view_to_anndata(
     corpus: Corpus, *, dataset_id=None, global_row_indices=None,
-    obs_columns=None, var_join="exact", lazy=False, chunk_rows=4096,
+    obs_columns=None, var_join="exact", lazy=False, chunk_rows=65_536, device="cpu",
 ):
-    """AnnData handoff sharing the same sparse reader and feature coordinates."""
+    """AnnData handoff sharing the same sparse reader and feature coordinates.
+
+    ``device`` ('cpu', 'cuda' or 'cuda:<index>') applies to the lazy export: on a
+    GPU each Dask chunk is a CuPy CSR matrix.
+    """
     import anndata as ad
     import dask.array as da
     from dask import delayed
@@ -283,15 +294,20 @@ def view_to_anndata(
             frame = frame[list(obs_columns)]
         obs_parts.append(frame)
         mapping = global_to_output[local_to_global]
-        dtype = corpus.expression_reader.read_expression_flat([int(indices[0])]).expression_counts.dtype if lazy else None
+        if lazy:
+            # Dtype is obtained from a bounded read, never a full dataset.
+            dtype = corpus.expression_reader.read_expression_flat([int(indices[0])]).expression_counts.dtype
+            if device != "cpu" and dtype.kind in "iu":
+                # CuPy sparse has no integer dtype.
+                dtype = np.dtype(np.float32)
+            meta = _lazy_sparse_meta(device, dtype)
         for start in range(0, len(indices), chunk_rows):
             selected_rows = indices[start:start + chunk_rows]
             args = (corpus.expression_reader, selected_rows, mapping, len(axis))
             if lazy:
-                # Dtype is obtained from a bounded read, never a full dataset.
                 blocks.append(da.from_delayed(
-                    delayed(_read_aligned)(*args), shape=(len(selected_rows), len(axis)),
-                    dtype=dtype, meta=sparse.csr_matrix((0, 0), dtype=dtype),
+                    delayed(_read_aligned)(*args, dtype, device), shape=(len(selected_rows), len(axis)),
+                    dtype=dtype, meta=meta,
                 ))
             else:
                 blocks.append(_read_aligned(*args))
