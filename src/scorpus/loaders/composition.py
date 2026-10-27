@@ -212,14 +212,20 @@ def concat(
 def _read_aligned(reader, indices, local_to_output, width, dtype=None, device="cpu"):
     batch = reader.read_expression_flat(list(indices))
     columns = local_to_output[batch.expressed_gene_indices]
-    keep = columns >= 0
-    # Prefix sums work for consecutive empty rows and a trailing empty row.
-    prefix = np.concatenate(([0], np.cumsum(keep, dtype=np.int64)))
-    offsets = prefix[batch.row_offsets]
-    matrix = sparse.csr_matrix(
-        (batch.expression_counts[keep], columns[keep], offsets),
-        shape=(len(indices), width), dtype=dtype,
-    )
+    offsets = batch.row_offsets
+    if columns.min(initial=0) < 0:
+        # Drop genes outside the output axis (inner join). Prefix sums work
+        # for consecutive empty rows and a trailing empty row.
+        keep = columns >= 0
+        prefix = np.concatenate(([0], np.cumsum(keep, dtype=np.int64)))
+        offsets = prefix[offsets]
+        # Boolean indexing already copies, so these chunks are writable.
+        counts, columns = batch.expression_counts[keep], columns[keep]
+    else:
+        # The reader may return read-only views of Lance's buffers; copy so
+        # each chunk is writable (e.g. for in-place log1p).
+        counts = np.array(batch.expression_counts, dtype=dtype)
+    matrix = sparse.csr_matrix((counts, columns, offsets), shape=(len(indices), width), dtype=dtype)
     if device == "cpu":
         return matrix
     import cupy as cp
@@ -278,7 +284,8 @@ def view_to_anndata(
         var = corpus.var.iloc[axis].copy()
     if not len(axis):
         raise ValueError("The selected feature axis is empty")
-    global_to_output = np.full(registry.global_vocab_size, -1, dtype=np.int64)
+    # int32: the CSR uses these as its column indices without a conversion copy.
+    global_to_output = np.full(registry.global_vocab_size, -1, dtype=np.int32)
     global_to_output[axis] = np.arange(len(axis))
     blocks, obs_parts = [], []
     for name, local_to_global in zip(selected, maps):

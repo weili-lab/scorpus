@@ -186,3 +186,40 @@ def test_full_scan_rejects_unsampled_bad_counts(tmp_path):
     with pytest.raises(ValueError, match="finite and nonnegative"):
         from_h5ad(path, tmp_path / "bad_corpus", chunk_rows=7)
     assert not (tmp_path / "bad_corpus" / "corpus.yaml").exists()
+
+
+def plain_csr(values, columns):
+    """CSR built the plain way: each row's nonzero values in stored gene order, at
+    their output column. Column -1 marks a gene the inner-join mapping leaves off the axis; it is dropped."""
+    data, indices, indptr = [], [], [0]
+    for row in values:
+        for value, column in zip(row, columns):
+            if value and column >= 0:
+                data.append(value)
+                indices.append(column)
+        indptr.append(len(data))
+    return data, indices, indptr
+
+
+def test_lazy_chunks_match_plain_csr(tmp_path):
+    """Every lazy chunk keeps values, column order and dtypes, with and without genes dropped by an inner join."""
+    # Leading, consecutive and trailing empty rows within the 3-row chunks.
+    values = np.array([[0, 0, 0], [1, 0, 2], [0, 0, 0], [3, 1, 4]], dtype=np.int32)
+    a = from_h5ad(write_data(tmp_path, "a", values=values)[0], tmp_path / "a", chunk_rows=2)
+    b = from_h5ad(write_data(tmp_path, "b", values=values, genes=("g3", "g1", "g4"))[0], tmp_path / "b", chunk_rows=2)
+    view = concat({"a": a, "b": b}, feature_key={"a": "symbol", "b": "symbol"})
+    # Output column of each member gene: outer axis g1 g2 g3 g4, inner axis g1 g3 (-1: off the inner-join axis).
+    cases = [(a, {}, [[0, 1, 2]]), (view, {"var_join": "outer"}, [[0, 1, 2], [2, 0, 3]]),
+             (view, {"var_join": "inner"}, [[0, -1, 1], [1, 0, -1]])]
+    for corpus, kwargs, member_columns in cases:
+        x = corpus.to_anndata_lazy(chunk_rows=3, **kwargs).X
+        chunks = [x.blocks[i].compute() for i in range(x.numblocks[0])]
+        expected = [plain_csr(values[start:start + 3], columns) for columns in member_columns for start in (0, 3)]
+        assert len(chunks) == len(expected)
+        for chunk, (data, indices, indptr) in zip(chunks, expected):
+            assert (chunk.data.dtype, chunk.indices.dtype, chunk.indptr.dtype) == (np.int32, np.int32, np.int32)
+            np.testing.assert_array_equal(chunk.data, data)
+            np.testing.assert_array_equal(chunk.indices, indices)
+            np.testing.assert_array_equal(chunk.indptr, indptr)
+            # Chunks may be changed in place downstream (e.g. log1p on .data).
+            assert chunk.data.flags.writeable and chunk.indices.flags.writeable and chunk.indptr.flags.writeable

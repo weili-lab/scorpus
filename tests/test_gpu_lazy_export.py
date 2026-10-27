@@ -50,3 +50,35 @@ def test_concat_gpu_export_matches_cpu(tmp_path, var_join):
     )
     assert_gpu_matches_cpu(view, var_join=var_join)
 
+
+
+def test_gpu_chunks_match_plain_csr(tmp_path):
+    """Every CuPy chunk holds the plain CSR of its rows: values (as float32) in stored gene order, int32 indices."""
+    a = make_corpus(tmp_path, "a")
+    view = concat({"a": a, "b": make_corpus(tmp_path, "b", genes=("g3", "g1", "g4"))}, feature_key={"a": "symbol", "b": "symbol"})
+    # Output column of each member gene: outer axis g1 g2 g3 g4, inner axis g1 g3 (-1: off the inner-join axis).
+    cases = [(a, {}, [[0, 1, 2]]), (view, {"var_join": "outer"}, [[0, 1, 2], [2, 0, 3]]),
+             (view, {"var_join": "inner"}, [[0, -1, 1], [1, 0, -1]])]
+    for corpus, kwargs, member_columns in cases:
+        x = corpus.to_anndata_lazy(chunk_rows=4, device="cuda", **kwargs).X
+        chunks = [x.blocks[i].compute() for i in range(x.numblocks[0])]
+        expected = [plain_csr(VALUES[start:start + 4], columns) for columns in member_columns for start in (0, 4)]
+        assert len(chunks) == len(expected)
+        for chunk, (data, indices, indptr) in zip(chunks, expected):
+            assert (chunk.data.dtype, chunk.indices.dtype, chunk.indptr.dtype) == (np.float32, np.int32, np.int32)
+            np.testing.assert_array_equal(chunk.data.get(), data)
+            np.testing.assert_array_equal(chunk.indices.get(), indices)
+            np.testing.assert_array_equal(chunk.indptr.get(), indptr)
+
+
+def plain_csr(values, columns):
+    """CSR built the plain way: each row's nonzero values in stored gene order, at
+    their output column. Column -1 marks a gene the inner-join mapping leaves off the axis; it is dropped."""
+    data, indices, indptr = [], [], [0]
+    for row in values:
+        for value, column in zip(row, columns):
+            if value and column >= 0:
+                data.append(value)
+                indices.append(column)
+        indptr.append(len(data))
+    return data, indices, indptr
