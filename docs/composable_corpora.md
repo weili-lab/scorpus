@@ -16,6 +16,11 @@ print(a.obs)  # original columns, index, and categorical/numeric metadata
 print(a.var)  # metadata for the selected matrix's feature axis
 ```
 
+Conversion adds one obs column, `scorpus_total_counts`: each cell's sum of
+stored counts (float64). It stops if the source obs already has a column of
+that name. No size factor is stored; compute one from `scorpus_total_counts`
+when needed. Older corpora have no such column.
+
 CLI equivalent:
 
 ```bash
@@ -52,7 +57,7 @@ non_count = from_h5ad("normalized.h5ad", "normalized.corpus", layers="X", no_cou
 CLI flags are `--attempt-conversion`, `--layers`, and `--no-count`.
 `layers` accepts one selection: `raw` means raw.X, `X` means X, otherwise it is
 a layer name. The explicit non-count route preserves the selected numeric dtype
-and values, and does not compute count size factors.
+and values, and adds no `scorpus_total_counts` column.
 
 Recovery uses `expm1(x) / min_nonzero_expm1_per_cell`. It assumes the smallest
 nonzero value corresponds to one molecule; integer checks do **not** prove
@@ -185,8 +190,8 @@ Pass prepared feature tables using `var={"a": a_var, "b": b_var}` similarly.
 - `combined.var` contains the shared feature axis and requested annotations.
 - `combined.members["a"].obs` retains the original member metadata.
 - `combined.feature_presence` records which member measured each feature.
-- `combined.metadata_index` also contains internal routing coordinates and
-  count size factors. These do not replace original columns in member obs.
+- `combined.metadata_index` also contains internal routing coordinates. These
+  do not replace original columns in member obs.
 
 Without `feature_key`, `concat` connects member-local axes but does not claim
 that similarly named genes are biologically equivalent. Shared-axis export and

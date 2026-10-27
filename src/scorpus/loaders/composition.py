@@ -25,7 +25,7 @@ def _registry(named_ids: Mapping[str, list[str]]) -> FeatureRegistry:
     })
 
 
-def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None) -> pl.DataFrame:
+def _metadata(obs: pd.DataFrame, name: str, index: int, start: int) -> pl.DataFrame:
     structural = {
         "global_row_index": np.arange(start, start + len(obs), dtype=np.int64),
         "dataset_index": np.full(len(obs), index, dtype=np.int32),
@@ -33,8 +33,6 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None
         "local_row_index": np.arange(len(obs), dtype=np.int64),
         "cell_id": obs.index.astype(str).to_numpy(),
     }
-    if factors is not None:
-        structural["size_factor"] = np.asarray(factors, dtype=np.float64)
     # User columns are kept untouched in Corpus.obs. Routing columns belong to
     # MetadataIndex, and take precedence only in that internal table.
     user = pl.from_pandas(obs.drop(columns=list(structural), errors="ignore"), include_index=False)
@@ -58,9 +56,6 @@ def load_standalone(root: Path) -> Corpus:
         raise ValueError("Stored metadata disagrees with manifest shape")
     name = root.name
     kind = manifest["expression_kind"]
-    factors = None if kind == "non_count" else pd.read_parquet(root / "statistics.parquet")["size_factor"]
-    if factors is not None and len(factors) != len(obs):
-        raise ValueError("Statistics rows disagree with obs")
     ids = var.index.astype(str).tolist()
     if not var.index.is_unique:
         ids = [f"local:{i}" for i in range(len(var))]
@@ -71,7 +66,7 @@ def load_standalone(root: Path) -> Corpus:
     entry = LanceDatasetEntry(name, 0, len(obs), root / "expression.lance", layout, counts_dtype)
     return Corpus(
         expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}),
-        metadata_index=MetadataIndex(_metadata(obs, name, 0, 0, factors)),
+        metadata_index=MetadataIndex(_metadata(obs, name, 0, 0)),
         dataset_entries=[entry], dataset_index_by_id={name: 0}, topology="federated",
         backend="lance", corpus_root=root, obs_frames={name: obs}, var_frames={name: var},
         expression_kinds={name: kind}, features_aligned=var.index.is_unique,
@@ -86,7 +81,7 @@ class _ViewExpressionReader(SortedTakeReader):
 
     def __init__(self, entries, members):
         super().__init__(entries)
-        # Only the members' readers, not the member corpora (obs, var, statistics): the
+        # Only the members' readers, not the member corpora (obs, var): the
         # reader then pickles as table paths and row ranges, e.g. into DataLoader workers.
         self.readers = {name: corpus.expression_reader for name, corpus in members.items()}
 
@@ -126,9 +121,9 @@ def concat(
     entries, frames, metadata_frames, named_ids = [], [], [], {}
     obs_frames, var_frames, kinds = {}, {}, {}
     start = 0
-    reserved = {"dataset_id", "dataset_index", "global_row_index", "local_row_index", "cell_id", "size_factor"}
+    reserved = {"dataset_id", "dataset_index", "global_row_index", "local_row_index", "cell_id"}
     if reserved.intersection(obs_columns or {}):
-        raise ValueError("Collective column names conflict with internal routing/statistics fields")
+        raise ValueError("Collective column names conflict with internal routing fields")
     for index, (name, corpus) in enumerate(corpora.items()):
         if len(corpus.dataset_ids) != 1:
             raise ValueError("concat inputs must each contain one dataset")
@@ -142,8 +137,7 @@ def concat(
             if set(mapping) != set(corpora):
                 raise ValueError(f"{column}: mapping must cover exactly the corpus members")
             selected[column] = source_obs[mapping[name]]
-        factors = corpus.metadata_index.df.get_column("size_factor").to_numpy() if "size_factor" in corpus.metadata_index.df.columns else np.full(len(source_obs), np.nan)
-        metadata_frames.append(_metadata(selected, name, index, start, factors))
+        metadata_frames.append(_metadata(selected, name, index, start))
         selected.index = pd.MultiIndex.from_arrays(
             [[name] * len(selected), np.arange(len(selected))], names=["member", "row"],
         )

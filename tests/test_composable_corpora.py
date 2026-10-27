@@ -29,14 +29,17 @@ def test_original_metadata_and_lazy_roundtrip(tmp_path):
     path, data = write_data(tmp_path)
     corpus = from_h5ad(path, tmp_path / "corpus", chunk_rows=2)
     assert not (tmp_path / "corpus" / "canonical-obs.parquet").exists()
-    pd.testing.assert_frame_equal(corpus.obs, data.obs)
+    assert not (tmp_path / "corpus" / "statistics.parquet").exists()
+    # Original obs plus each cell's exact total count; nothing median-derived.
+    expected_obs = data.obs.assign(scorpus_total_counts=np.asarray([3.0, 0.0, 4.0, 0.0]))
+    pd.testing.assert_frame_equal(corpus.obs, expected_obs)
     pd.testing.assert_frame_equal(corpus.var, data.var)
     loaded = load_corpus(tmp_path / "corpus")
     eager = loaded.to_anndata()
     lazy = loaded.to_anndata_lazy(chunk_rows=2)
     np.testing.assert_array_equal(eager.X.toarray(), data.X.toarray())
     np.testing.assert_array_equal(lazy.X.compute().toarray(), data.X.toarray())
-    pd.testing.assert_frame_equal(lazy.obs, data.obs)
+    pd.testing.assert_frame_equal(lazy.obs, expected_obs)
     pd.testing.assert_frame_equal(lazy.var, data.var)
     output = tmp_path / "export.h5ad"
     loaded.write_h5ad(output, chunk_rows=2)
@@ -44,13 +47,22 @@ def test_original_metadata_and_lazy_roundtrip(tmp_path):
     try:
         assert backed.isbacked
         np.testing.assert_array_equal(backed.X[:].toarray(), data.X.toarray())
-        pd.testing.assert_frame_equal(backed.obs, data.obs)
+        pd.testing.assert_frame_equal(backed.obs, expected_obs)
     finally:
         backed.file.close()
     reordered = loaded.to_anndata(global_row_indices=[3, 0, 1, 0])
     np.testing.assert_array_equal(reordered.X.toarray(), data.X[[3, 0, 1, 0]].toarray())
     with pytest.raises(FileExistsError):
         from_h5ad(path, tmp_path / "corpus")
+
+
+def test_source_obs_with_total_counts_column_is_refused(tmp_path):
+    path, data = write_data(tmp_path)
+    data.obs["scorpus_total_counts"] = 1.0
+    data.write_h5ad(path)
+    with pytest.raises(ValueError, match="already has a 'scorpus_total_counts' column"):
+        from_h5ad(path, tmp_path / "clash")
+    assert not (tmp_path / "clash").exists()
 
 
 def test_recovery_is_explicit(tmp_path):
@@ -76,7 +88,7 @@ def test_explicit_non_count_preserves_floats(tmp_path):
     actual = corpus.to_anndata_lazy(chunk_rows=2).X.compute()
     assert actual.dtype == values.dtype
     np.testing.assert_array_equal(actual.toarray(), values)
-    assert "size_factor" not in corpus.metadata_index.df.columns
+    assert "scorpus_total_counts" not in corpus.obs.columns
 
 
 def test_raw_uses_its_own_feature_metadata(tmp_path):
@@ -151,7 +163,7 @@ def test_cli_conversion(tmp_path, monkeypatch):
     path, _ = write_data(tmp_path)
     monkeypatch.setattr("sys.argv", ["pdl", "convert", "--source", str(path), "--output", str(tmp_path / "cli"), "--chunk-rows", "2"])
     main()
-    assert load_corpus(tmp_path / "cli").obs.shape == (4, 3)
+    assert "scorpus_total_counts" in load_corpus(tmp_path / "cli").obs
 
 
 def test_explicit_zero_counts_and_runtime_metadata(tmp_path):
