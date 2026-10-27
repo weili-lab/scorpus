@@ -6,6 +6,11 @@
 keep=rows)` keeps only the given rows (for example the cells passing your own QC filter):
 the new corpus holds only those cells.
 
+Saved results follow the cells: every `ex_obs.parquet` / `ex_obs_<name>.parquet` is
+written in the new order (and filtered with it), next to `obs.parquet`, and every
+`ex_var.parquet` / `ex_var_<name>.parquet` is copied with `var.parquet`, so
+`load_corpus(new, ex_obs=...)` returns the same results on the same cells.
+
 `scorpus.stage` / `scorpus.staged` copy corpora to faster storage first (node-local NVMe,
 or RAM under `/dev/shm`).
 

@@ -16,12 +16,13 @@ The handoff API has three parts:
 adata = corpus.to_anndata(dataset_id="replogle_k562")
 adata = corpus.to_anndata(global_row_indices=[10, 25, 10])
 adata = corpus.to_anndata_lazy(dataset_id="replogle_k562", chunk_rows=4096)
-corpus.add_obs_meta(frame, on=["dataset_id", "cell_id"])
+corpus.add_obs_meta(frame)
+corpus.save_ex_obs()
 ```
 
 - `to_anndata(...)` builds a normal in-memory AnnData with SciPy CSR `X` for whole datasets or selected global rows.
 - `to_anndata_lazy(...)` builds an AnnData whose `X` is a Dask array of sparse CSR chunks read from the corpus backend.
-- `add_obs_meta(...)` joins selected cell-level results back into the loaded corpus metadata at runtime.
+- `add_obs_meta(...)` appends per-cell results to a loaded standalone corpus; `save_ex_obs(...)` / `save_ex_var(...)` save its obs / var next to the corpus (see "Saving results with the corpus").
 
 Selected-index export requires all global row indices to belong to one dataset.
 It preserves requested order and duplicate rows, and infers the dataset when
@@ -174,39 +175,65 @@ support is still function-specific; for example, `rank_genes_groups` supports
 Dask for `t-test`, `t-test_overestim_var`, and `wilcoxon_binned`, but not
 regular `wilcoxon` or `logreg`.
 
-## Adding results back to the corpus
+## Saving results with the corpus
 
-`scorpus` does not decide how Scanpy/RAPIDS outputs are saved. The user
-owns the AnnData workflow and can add selected cell-level results back to the
-loaded corpus with `add_obs_meta(...)`:
+A standalone corpus keeps per-cell and per-gene results in files next to it:
+`ex_obs.parquet` / `ex_var.parquet` (the default), or `ex_obs_<name>.parquet` /
+`ex_var_<name>.parquet` (named). Each file holds the full obs or var, the original
+columns plus the added ones, in the corpus's cell or gene order. Loading one uses it
+instead of `obs.parquet` / `var.parquet`, which are never changed.
 
 ```python
-corpus.add_obs_meta(
-    adata.obs[["dataset_id", "cell_id", "leiden", "doublet_score"]],
-    on=["dataset_id", "cell_id"],
-)
+corpus = load_corpus("my.corpus")
+adata = corpus.to_anndata_lazy()
+sc.pp.highly_variable_genes(adata, flavor="seurat_v3", n_top_genes=2000, batch_key="lane")
+# ... clustering etc.
+
+corpus.add_obs_meta(adata.obs[["leiden", "doublet_score"]])  # export keeps the corpus cell ids
+corpus.save_ex_obs()                     # ex_obs.parquet (created or overwritten)
+for column in ["highly_variable", "highly_variable_rank"]:
+    corpus.var[column] = adata.var[column].to_numpy()
+corpus.save_ex_var("hvg2000")            # ex_var_hvg2000.parquet
+
+corpus = load_corpus("my.corpus", ex_obs=True, ex_var="hvg2000")
 ```
 
-`add_obs_meta(...)` is strict:
+- `add_obs_meta(meta, overwrite=False)` takes a DataFrame or a parquet path. Its
+  index must equal the corpus obs index (the cell ids) element by element: same
+  rows, same order. Repeated barcodes are fine, because order is compared, not
+  uniqueness. A column that already exists is an error unless `overwrite=True`;
+  the routing fields (`cell_id`, `dataset_id`, `dataset_index`, `global_row_index`,
+  `local_row_index`) are always refused.
+  The new columns join `corpus.obs`, `take_metadata` and AnnData exports, but only
+  in the loaded corpus; `save_ex_obs` saves them. A standalone corpus's AnnData
+  export keeps its cell ids as the obs index, so its obs can be passed back as is.
+- `save_ex_obs(name=None)` / `save_ex_var(name=None)` write `corpus.obs` /
+  `corpus.var`. They refuse when its rows (cells or genes) differ from the corpus's
+  `obs.parquet` / `var.parquet` in number or order.
+- `load_corpus(root, ex_obs=..., ex_var=...)`: `True` loads the default file, a
+  string loads that named file; obs and var are chosen separately.
+- Both work on one standalone corpus. For a `concat`, load each member with its
+  ex files and concat those: `concat({"a": load_corpus(a, ex_obs=True), ...})`.
+- The shared corpora under `/beacon-projects/perturbai/data/` are read-only, so ex
+  files need a copy of the corpus.
+- `reorder_corpus` carries every ex file (see `rewrite_and_stage.md`).
 
-- join keys are required
-- incoming rows must cover the full loaded corpus exactly once
-- duplicate join keys are rejected
-- missing corpus rows are rejected
-- extra unmatched rows are rejected
-- new metadata column names must not already exist in the corpus
-- the update is runtime-only and does not persist to disk
+### HVGs from `ex_var`
 
-Preferred join keys are:
+When the loaded var has a `highly_variable` column, the loader fills the gene
+index's HVG ranks from it, so `feature_registry.hvg_mask` /
+`hvg_rank_matrix` (used, for example, by pertTF's `"hvg"` gene sampling) and the
+AnnData `var["hvg_rank"]` follow it:
 
-- `on=["dataset_id", "cell_id"]`
-- `on=["dataset_id", "local_row_index"]`
-- `on=["global_row_index"]`
-
-For a multi-dataset loaded corpus, analyze all feature-compatible datasets
-together or combine per-dataset result frames before calling `add_obs_meta(...)`.
-Partial subset metadata is rejected because it would leave the corpus in a
-half-annotated runtime state.
+- `highly_variable_rank` is required as well. It is scanpy's `seurat_v3` /
+  `seurat_v3_paper` column (0-based, NaN outside the top genes, a median across
+  batches with `batch_key`). The `seurat` and `cell_ranger` flavors write no rank;
+  add one before saving, for example
+  `var["highly_variable_rank"] = var["dispersions_norm"].rank(ascending=False, method="first") - 1`.
+- Only the `highly_variable` genes are ranked, 1..n in `highly_variable_rank` order
+  (ties in gene order); all other genes get 0, so `hvg_mask` is exactly
+  `highly_variable` and a top-k above n gives all n HVGs (for more, compute HVGs
+  with a larger `n_top_genes`).
 
 After adding metadata, the new columns can define groups for sampling, for example
 batches that each hold cells of one cluster and perturbation:

@@ -170,10 +170,7 @@ def test_explicit_zero_counts_and_runtime_metadata(tmp_path):
     path, _ = write_data(tmp_path, values=np.zeros((4, 3), dtype=np.int32))
     corpus = from_h5ad(path, tmp_path / "zeros", layers="X", chunk_rows=2)
     assert not corpus.to_anndata().X.nnz
-    corpus.add_obs_meta(
-        pd.DataFrame({"global_row_index": [2, 0, 3, 1], "new_label": ["c", "a", "d", "b"]}),
-        on=["global_row_index"],
-    )
+    corpus.add_obs_meta(pd.DataFrame({"new_label": ["a", "b", "c", "d"]}, index=corpus.obs.index))
     assert corpus.obs["new_label"].tolist() == ["a", "b", "c", "d"]
     assert corpus.to_anndata_lazy().obs["new_label"].tolist() == ["a", "b", "c", "d"]
     assert "new_label" not in load_corpus(tmp_path / "zeros").obs

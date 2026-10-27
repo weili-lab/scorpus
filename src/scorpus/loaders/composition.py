@@ -11,18 +11,43 @@ import polars as pl
 import yaml
 from scipy import sparse
 
-from .corpus_loader import Corpus
+from .corpus_loader import Corpus, ex_path
 from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
 
 
-def _registry(named_ids: Mapping[str, list[str]]) -> FeatureRegistry:
-    # Canonical names here are internal coordinates, not required user columns.
-    return FeatureRegistry({
-        name: pl.DataFrame({"origin_index": np.arange(len(ids)), "canonical_gene_id": ids})
-        for name, ids in named_ids.items()
+def _hvg_ranks(var: pd.DataFrame) -> pl.DataFrame:
+    """Gene-index HVG ranks from scanpy's var columns ``highly_variable`` and ``highly_variable_rank``.
+
+    Only the ``highly_variable`` genes are ranked, 1..n in ``highly_variable_rank``
+    order (scanpy's rank is 0-based and, with ``batch_key``, a median across
+    batches, so ties keep gene order); all other genes get 0. The default HVG
+    count is n, so the gene index's HVG mask is exactly ``highly_variable``.
+    """
+    selected = np.flatnonzero(var["highly_variable"].to_numpy(dtype=bool))
+    rank = var["highly_variable_rank"].to_numpy(dtype=np.float64)
+    order = selected[np.argsort(rank[selected], kind="stable")]
+    return pl.DataFrame({
+        "origin_index": order,
+        "hvg_rank": np.arange(1, len(order) + 1),
+        "selected_at_default_n_hvg": np.ones(len(order), dtype=bool),
     })
+
+
+def _registry(named_ids: Mapping[str, list[str]], var_frames: Mapping[str, pd.DataFrame]) -> FeatureRegistry:
+    # Canonical names here are internal coordinates, not required user columns.
+    return FeatureRegistry(
+        {
+            name: pl.DataFrame({"origin_index": np.arange(len(ids)), "canonical_gene_id": ids})
+            for name, ids in named_ids.items()
+        },
+        named_hvg_rank_dfs={name: _hvg_ranks(var) for name, var in var_frames.items() if "highly_variable" in var},
+    )
+
+
+# Routing fields that live only in MetadataIndex, never taken from user obs.
+ROUTING_COLUMNS = ("global_row_index", "dataset_index", "dataset_id", "local_row_index", "cell_id")
 
 
 def _metadata(obs: pd.DataFrame, name: str, index: int, start: int) -> pl.DataFrame:
@@ -35,7 +60,7 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int) -> pl.DataFr
     }
     # User columns are kept untouched in Corpus.obs. Routing columns belong to
     # MetadataIndex, and take precedence only in that internal table.
-    user = pl.from_pandas(obs.drop(columns=list(structural), errors="ignore"), include_index=False)
+    user = pl.from_pandas(obs.drop(columns=list(ROUTING_COLUMNS), errors="ignore"), include_index=False)
     return pl.DataFrame(structural).hstack(user) if user.width else pl.DataFrame(structural)
 
 
@@ -43,15 +68,16 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int) -> pl.DataFr
 STANDALONE_FORMATS = ("scorpus", "perturb-data-lab")
 
 
-def load_standalone(root: Path) -> Corpus:
+def load_standalone(root: Path, ex_obs: bool | str | None = None, ex_var: bool | str | None = None) -> Corpus:
     manifest = yaml.safe_load((root / "corpus.yaml").read_text())
     if (
         manifest["format"] not in STANDALONE_FORMATS
         or (manifest["version"], manifest["backend"]) != (1, "lance")
     ):
         raise ValueError("Unsupported standalone corpus format/version/backend")
-    obs = pd.read_parquet(root / "obs.parquet")
-    var = pd.read_parquet(root / "var.parquet")
+    # An ex file holds the full obs/var (original plus saved columns) and replaces it.
+    obs = pd.read_parquet(ex_path(root, "obs", ex_obs) if ex_obs else root / "obs.parquet")
+    var = pd.read_parquet(ex_path(root, "var", ex_var) if ex_var else root / "var.parquet")
     if [len(obs), len(var)] != manifest["shape"]:
         raise ValueError("Stored metadata disagrees with manifest shape")
     name = root.name
@@ -65,7 +91,7 @@ def load_standalone(root: Path) -> Corpus:
     counts_dtype = manifest["dtype"] if layout == "packed" else None
     entry = LanceDatasetEntry(name, 0, len(obs), root / "expression.lance", layout, counts_dtype)
     return Corpus(
-        expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}),
+        expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}, {name: var}),
         metadata_index=MetadataIndex(_metadata(obs, name, 0, 0)),
         dataset_entries=[entry], dataset_index_by_id={name: 0}, topology="federated",
         backend="lance", corpus_root=root, obs_frames={name: obs}, var_frames={name: var},
@@ -121,8 +147,7 @@ def concat(
     entries, frames, metadata_frames, named_ids = [], [], [], {}
     obs_frames, var_frames, kinds = {}, {}, {}
     start = 0
-    reserved = {"dataset_id", "dataset_index", "global_row_index", "local_row_index", "cell_id"}
-    if reserved.intersection(obs_columns or {}):
+    if set(ROUTING_COLUMNS).intersection(obs_columns or {}):
         raise ValueError("Collective column names conflict with internal routing fields")
     for index, (name, corpus) in enumerate(corpora.items()):
         if len(corpus.dataset_ids) != 1:
@@ -160,7 +185,7 @@ def concat(
         kinds[name] = corpus.expression_kinds.get(corpus.dataset_ids[0], "counts")
     # Strict vertical concatenation catches incompatible collective column types.
     metadata = MetadataIndex(pl.concat(metadata_frames, how="vertical"))
-    registry = _registry(named_ids)
+    registry = _registry(named_ids, var_frames)
     collective_var = pd.DataFrame(index=pd.Index(registry.global_feature_ids, name="feature_id"))
     for column, mapping in (var_columns or {}).items():
         if set(mapping) != set(corpora):
@@ -271,6 +296,8 @@ def view_to_anndata(
             else:
                 blocks.append(_read_aligned(*args))
     expression = da.concatenate(blocks, axis=0) if lazy else sparse.vstack(blocks, format="csr")
+    if len(selected) == 1 and "highly_variable" in var:
+        var["hvg_rank"] = registry.hvg_rank_matrix[ds_indices[0], axis]
     result = ad.AnnData(X=expression, obs=pd.concat(obs_parts), var=var)
     # AnnData sparse matrices encode absence as zero; retain the distinction.
     result.varm["feature_presence"] = registry.dataset_has_gene[ds_indices][:, axis].T.copy()
