@@ -86,12 +86,14 @@ class _ViewExpressionReader(SortedTakeReader):
 
     def __init__(self, entries, members):
         super().__init__(entries)
-        self.members = dict(members)
+        # Only the members' readers, not the member corpora (obs, var, statistics): the
+        # reader then pickles as table paths and row ranges, e.g. into DataLoader workers.
+        self.readers = {name: corpus.expression_reader for name, corpus in members.items()}
 
     def _take_rows(self, entry, rows):
         # Each member holds one table, so view-local rows are the member's
         # global rows. Its blocks join this batch directly, copied only once.
-        reader = self.members[entry.dataset_id].expression_reader
+        reader = self.readers[entry.dataset_id]
         return reader._take_rows(reader._entries[0], rows)
 
 

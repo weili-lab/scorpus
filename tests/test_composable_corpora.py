@@ -1,3 +1,5 @@
+import pickle
+
 import anndata as ad
 import numpy as np
 import pandas as pd
@@ -128,6 +130,20 @@ def test_composition_alignment_and_no_copy(tmp_path):
         concat({"a": a, "b": b}, var={"a": a.var, "b": bad_var}, feature_key={"a": "symbol", "b": "symbol"})
     with pytest.raises(ValueError, match="identity/order"):
         concat({"a": a, "b": b}, obs={"a": a.obs.iloc[::-1], "b": b.obs})
+
+
+def test_view_reader_pickles_without_member_corpora(tmp_path):
+    """A view's reader is what DataLoader workers get: table paths and row ranges, not the members' obs."""
+    path_a, _ = write_data(tmp_path, "a")
+    path_b, _ = write_data(tmp_path, "b", genes=("g3", "g1", "g4"))
+    view = concat({"a": from_h5ad(path_a, tmp_path / "a"), "b": from_h5ad(path_b, tmp_path / "b")})
+    payload = pickle.dumps(view.expression_reader)
+    assert b"DataFrame" not in payload and b"barcode" not in payload
+    rows = [6, 0, 7, 6, 2]
+    expected = view.expression_reader.read_expression_flat(rows)
+    actual = pickle.loads(payload).read_expression_flat(rows)
+    for field in ("global_row_index", "row_offsets", "expressed_gene_indices", "expression_counts"):
+        np.testing.assert_array_equal(getattr(actual, field), getattr(expected, field))
 
 
 def test_cli_conversion(tmp_path, monkeypatch):
