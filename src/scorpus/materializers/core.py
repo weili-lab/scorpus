@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import anndata as ad
 import pandas as pd
@@ -18,7 +18,6 @@ from scipy.sparse import csr_matrix, issparse
 from .backends import build_backend_fn
 from .metadata_writers import (
     write_feature_provenance_parquet,
-    write_hvg_ranking_parquet,
     write_raw_cell_metadata_parquet,
     write_raw_feature_metadata_parquet,
     write_size_factor_parquet,
@@ -76,8 +75,6 @@ class DatasetMaterializer:
     rerun_inspection : bool, default False
         If True, reruns inspection before materialization and uses the resulting
         ``dataset-summary.yaml``.
-    n_hvg : int, default 2000
-        Number of top-dispersion genes to select as HVGs.
     chunk_rows : int, default 100000
         Number of rows per chunk when streaming the count matrix through the
         write path. Larger values reduce the number of loop iterations but
@@ -128,7 +125,6 @@ class DatasetMaterializer:
         backend: str = "lance",
         topology: str = "federated",
         rerun_inspection: bool = False,
-        n_hvg: int = 2000,
         chunk_rows: int = 100_000,
         corpus_index_path: str | None = None,
         corpus_id: str | None = None,
@@ -152,7 +148,6 @@ class DatasetMaterializer:
         self.backend = backend
         self.topology = topology
         self.rerun_inspection = rerun_inspection
-        self.n_hvg = n_hvg
         self.chunk_rows = chunk_rows
         self.corpus_index_path = corpus_index_path
         self.corpus_id = corpus_id
@@ -259,15 +254,13 @@ class DatasetMaterializer:
                 source_path=str(source_h5ad),
             )
 
-            # --- Write backend-specific sparse cell data ---
-            # HVG and size-factor inputs are accumulated during the chunk loop.
-            # Global size factors are computed after the loop from all row_sums.
-            # Size factors and the canonical HVG ranking parquet are written after the loop.
-            backend_paths, size_factor_parquet_path, hvg_ranking_path = self._write_cells(
+            # Size-factor inputs are accumulated during the chunk loop.
+            # Size-factor inputs are accumulated during the chunk loop; global
+            # size factors are computed from all row_sums and written after it.
+            backend_paths, size_factor_parquet_path = self._write_cells(
                 count_matrix=count_matrix,
                 matrix_root=matrix_root,
                 cell_ids=filtered_obs.index,
-                feature_ids=tuple(str(v) for v in var_index),
                 needs_recovery=count_source.uses_recovery,
             )
             self._assert_backend_outputs_exist(backend_paths)
@@ -295,8 +288,6 @@ class DatasetMaterializer:
                 raw_feature_meta_path=self._manifest_artifact_path(raw_feature_meta_parquet_path),
                 provenance_spec_path=self._manifest_artifact_path(provenance_spec_path),
                 size_factor_parquet_path=self._manifest_artifact_path(size_factor_parquet_path),
-                hvg_ranking_path=self._manifest_artifact_path(hvg_ranking_path),
-                default_n_hvg=self.n_hvg,
                 integer_verified=True,
                 cell_count=n_obs,
                 feature_count=n_vars,
@@ -389,26 +380,24 @@ class DatasetMaterializer:
         matrix_root: Path,
         *,
         cell_ids: pd.Index,
-        feature_ids: Sequence[str],
         needs_recovery: bool = False,
-    ) -> tuple[dict[str, Path], Path, Path]:
+    ) -> tuple[dict[str, Path], Path]:
         """Write sparse cell data using the configured backend and topology.
 
-        HVG accumulation and global size factor computation are done during the
-        chunk loop; the canonical ``hvg.parquet`` artifact is finalized after the loop.
+        Size-factor inputs are accumulated during the chunk loop; global size
+        factors are computed after it.
         """
         from .chunk_translation import _translate_chunk
 
         backend_fn = build_backend_fn(self.backend, self.topology)
         n_obs = count_matrix.shape[0]
-        n_vars = count_matrix.shape[1]
         global_row_start = self.global_row_start if self.topology == "aggregate" else 0
         writer_state: dict | None = (
             self.writer_state if self.topology == "aggregate" else None
         )
 
         all_paths: dict[str, Path] = {}
-        stats = DatasetStreamingStats(n_vars)
+        stats = DatasetStreamingStats()
 
         for chunk_start in range(0, n_obs, self.chunk_rows):
             chunk_end = min(chunk_start + self.chunk_rows, n_obs)
@@ -446,13 +435,5 @@ class DatasetMaterializer:
             cell_ids=cell_ids,
             meta_root=Path(self.output_roots.metadata_root),
         )
-        hvg_ranking_path = write_hvg_ranking_parquet(
-            sum_log1p=stats.sum_log1p,
-            sum_log1p_sq=stats.sum_log1p_sq,
-            n_cells_total=stats.n_cells_total,
-            feature_ids=feature_ids,
-            n_hvg=self.n_hvg,
-            meta_root=Path(self.output_roots.metadata_root),
-        )
 
-        return (all_paths, size_factor_parquet_path, hvg_ranking_path)
+        return (all_paths, size_factor_parquet_path)

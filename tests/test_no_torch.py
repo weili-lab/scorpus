@@ -16,7 +16,7 @@ sys.meta_path.insert(0, NoTorch())
 
 def test_scorpus_imports_without_torch():
     code = NO_TORCH + (
-        "import scorpus, scorpus.cli, scorpus.pp, scorpus.pairing\n"
+        "import scorpus, scorpus.cli, scorpus.pairing\n"
         "from scorpus.loaders import *\n"
         "assert 'torch' not in sys.modules\n"
     )

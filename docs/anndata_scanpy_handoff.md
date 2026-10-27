@@ -244,15 +244,3 @@ from scorpus.pairing import cells, make_groups
 groups = make_groups(corpus.metadata_index.df, by=["leiden", "perturb_label"])
 batches = cells(groups, epoch=0, batch_size=128, same_group=True)
 ```
-
-## Corpus-native pp helpers
-
-Use Scanpy or RAPIDS for normalization, log transforms, PCA, neighbors, UMAP,
-clustering, plotting, batch correction, and exploratory marker ranking.
-
-Use corpus-native `scorpus.pp` helpers for durable HVG rankings,
-streamed summary statistics, quick QA/debug checks, and bounded-memory fallback
-workflows when AnnData handoff is not practical.
-
-The most important durable artifact is the per-dataset `hvg.parquet` ranking
-table created during materialization or by `recalc-hvg`.

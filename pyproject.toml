@@ -24,9 +24,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-pca = [
-    "scikit-learn>=1.4",
-]
 # Sphinx toolchain used to build docs/ on ReadTheDocs (no autodoc, so scorpus's
 # own imports are not exercised by the doc build).
 docs = [

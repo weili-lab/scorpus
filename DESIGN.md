@@ -63,7 +63,7 @@ expression readers. `load_corpus()` dispatches on which manifest it finds:
 The user-facing how-to docs are split by task:
 
 - Conversion and composition: `docs/composable_corpora.md`
-- AnnData/Scanpy/RAPIDS handoff and corpus-native pp helpers: `docs/anndata_scanpy_handoff.md`
+- AnnData/Scanpy/RAPIDS handoff: `docs/anndata_scanpy_handoff.md`
 - Backend policy: `docs/backend_note.md`
 - Inspection and materialization (curated route): `docs/inspect_materialize.md`
 - Canonical schema review and canonicalization (curated route): `docs/canonicalization_handbook.md`
@@ -119,7 +119,6 @@ Important materialization artifacts:
 - `raw-obs.parquet`: raw obs metadata plus stable row identity fields
 - `raw-var.parquet`: raw var metadata plus `origin_index`
 - `size-factor.parquet`: per-cell size factors
-- `hvg.parquet`: per-dataset HVG ranking table keyed by `origin_index`
 
 Materialization does not apply cell filtering. If a dataset should be filtered,
 create a pre-filtered `.h5ad` first and inspect/materialize that file.
@@ -188,7 +187,7 @@ It builds:
 
 - an expression reader for aggregate or federated Lance/Zarr
 - a `MetadataIndex` from `canonical-obs.parquet`
-- a `FeatureRegistry` from `canonical-var.parquet` and optional `hvg.parquet`
+- a `FeatureRegistry` from `canonical-var.parquet`; for older materialized corpora it still reads an existing `hvg.parquet` (new materializations no longer write one; HVGs come from `ex_var`)
 - a `Corpus` object that exposes public loading and inspection methods
 
 Common runtime calls:
@@ -226,9 +225,7 @@ allowed only when the selected datasets share the same ordered feature axis.
 After export, Scanpy/RAPIDS should own normalization, log transforms, PCA,
 neighbors, UMAP, clustering, plotting, and exploratory differential expression.
 Selected full-corpus cell-level results can be joined back into the loaded corpus
-with `corpus.add_obs_meta(...)`. Corpus-native `pp` helpers remain for durable
-HVG rankings, streamed stats, QA/debug checks, and bounded-memory fallbacks. See
-`docs/anndata_scanpy_handoff.md`.
+with `corpus.add_obs_meta(...)`. See `docs/anndata_scanpy_handoff.md`.
 
 ## Corpus Management Helpers
 
@@ -238,9 +235,6 @@ consistent.
 `corpus-compose` creates a new federated corpus from selected whole-dataset
 directories. It supports symlink or copy mode and requires all selected inputs
 to use the same backend.
-
-`recalc-hvg` recomputes per-dataset `hvg.parquet` rankings from an existing
-corpus and can update manifests.
 
 `corpus-gc` removes unregistered per-dataset directories after failed corpus
 writes. It is intentionally conservative and does not clean registered backend

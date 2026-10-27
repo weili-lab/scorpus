@@ -22,7 +22,6 @@ Optional extras:
 
 ```bash
 pip install -e ".[demo]"   # scanpy, dask[dataframe], requests, tqdm: the walkthroughs
-pip install -e ".[pca]"    # scikit-learn: scorpus.pp.run_pca
 pip install -e ".[docs]"   # sphinx, myst-nb, furo: build this site
 ```
 

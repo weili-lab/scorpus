@@ -253,20 +253,6 @@ class TestParserConstruction:
         ns = parser.parse_args(["corpus-gc", "/corpus"])
         assert ns.dry_run is False
 
-    def test_recalc_hvg_subcommand(self):
-        parser = build_parser()
-        ns = parser.parse_args([
-            "recalc-hvg",
-            "--corpus-root", "/corpus",
-            "--dataset-id", "ds1",
-            "--batch-size", "1234",
-        ])
-        assert ns.command == "recalc-hvg"
-        assert ns.corpus_root == "/corpus"
-        assert ns.dataset_id == ["ds1"]
-        assert ns.batch_size == 1234
-        assert ns.update_manifests is True
-
     def test_unknown_subcommand_exits(self):
         parser = build_parser()
         with pytest.raises(SystemExit):
@@ -327,7 +313,6 @@ class TestMaterializeDatasetRouting:
             backend="lance",
             topology="aggregate",
             rerun_inspection=False,
-            n_hvg=2000,
             corpus_id="test-corpus",
         )
         corpus_root = tmp_path / "corpus"
@@ -383,7 +368,6 @@ class TestMaterializeDatasetRouting:
             backend="lance",
             topology="federated",
             rerun_inspection=False,
-            n_hvg=2000,
             corpus_id="test-corpus",
         )
         corpus_root = tmp_path / "corpus"
@@ -904,7 +888,7 @@ class TestCLIHelp:
             parser.parse_args(["--help"])
         captured = capsys.readouterr()
         # Current commands should appear
-        for cmd in ["inspect", "materialize", "draft-schema", "canonicalize", "recalc-hvg", "corpus-validate", "corpus-gc"]:
+        for cmd in ["inspect", "materialize", "draft-schema", "canonicalize", "corpus-validate", "corpus-gc"]:
             assert cmd in captured.out
         # Removed commands should NOT appear
         for cmd in ["stage2-materialize", "corpus-create", "corpus-append"]:
@@ -1730,7 +1714,6 @@ class TestMaterializeCmd:
             topology=None,
             corpus_id="test-v0",
             rerun_inspection=False,
-            n_hvg=2000,
             dry_run=True,
         )
 
@@ -1786,7 +1769,6 @@ class TestMaterializeCmd:
             topology=None,
             corpus_id="test-v0",
             rerun_inspection=False,
-            n_hvg=2000,
             dry_run=True,
         )
 
@@ -1850,7 +1832,6 @@ class TestMaterializeCmd:
             topology=None,
             corpus_id="test-v0",
             rerun_inspection=False,
-            n_hvg=2000,
             dry_run=True,
         )
 
@@ -1921,7 +1902,6 @@ class TestMaterializeCmd:
             topology=None,
             corpus_id="test-v0",
             rerun_inspection=False,
-            n_hvg=2000,
             dry_run=False,
         )
 
