@@ -35,6 +35,13 @@ __all__ = [
     "Corpus",
     "load_corpus",
 ]
+
+# Rows per Dask chunk of the lazy export. Peak memory grows with chunk_rows x Dask threads. On a
+# 1.23M-cell corpus (~3,500 nonzeros per cell, 16 threads) 8,192 rows ran within ~5% of the fastest
+# size (16,384) at about half its memory (27 GB CPU); 65,536 ran out of memory on a 48 GB GPU and
+# needed about 160 GB on the CPU.
+LAZY_CHUNK_ROWS = 8_192
+
 # ---------------------------------------------------------------------------
 # Corpus dataclass
 # ---------------------------------------------------------------------------
@@ -207,7 +214,7 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         obs_columns: Sequence[str] | None = None,
-        chunk_rows: int = 65_536,
+        chunk_rows: int = LAZY_CHUNK_ROWS,
         device: str = "cpu",
         var_join: Literal["inner", "exact", "outer"] = "exact",
     ):
@@ -250,7 +257,7 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         var_join: Literal["inner", "exact", "outer"] = "exact",
-        chunk_rows: int = 65_536,
+        chunk_rows: int = LAZY_CHUNK_ROWS,
     ) -> None:
         """Write a new h5ad through AnnData's chunked Dask writer.
 

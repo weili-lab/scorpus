@@ -110,10 +110,11 @@ adata = corpus.to_anndata_lazy(
 )
 ```
 
-Each Dask chunk holds `chunk_rows` cells (default 65,536), the same for
-`write_h5ad(...)`. Larger chunks mean fewer Dask tasks; a chunk of 65,536 cells
-at 3,000 nonzeros per cell is about 1.5-2.5 GB in memory, so lower `chunk_rows`
-when a worker or GPU runs short of memory.
+Each Dask chunk holds `chunk_rows` cells (default 8,192), the same for
+`write_h5ad(...)`. Larger chunks mean fewer Dask tasks but more memory: a chunk of
+8,192 cells at 3,500 nonzeros per cell is about 0.23 GB as CSR and takes about 3x
+that while it is read, once per Dask thread. Lower `chunk_rows` when a worker or
+GPU runs short of memory; see the chunk-size table in the scanpy/RAPIDS guide.
 
 Only `adata.X` is lazy. `adata.obs` and `adata.var` are loaded in memory because
 they are small compared with the count matrix.
