@@ -12,7 +12,7 @@ Install a release straight from GitHub (the tag pins the version):
 conda create -n scorpus python=3.12 -y
 conda activate scorpus
 
-pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.6.0"
 ```
 
 or, to work on scorpus itself, from a clone:
@@ -37,14 +37,14 @@ rest; with a clone, write them as `pip install -e ".[scanpy]"`:
 | `docs` | sphinx, myst-nb, furo | building this site |
 
 ```bash
-pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.6.0"
 ```
 
 RAPIDS wheels come from NVIDIA's package index, so the GPU extra needs it as
 well:
 
 ```bash
-pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0" \
+pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.6.0" \
     --extra-index-url https://pypi.nvidia.com
 ```
 
