@@ -39,7 +39,7 @@ It is built for three jobs:
 ## Install
 
 ```bash
-pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.6.0"
 ```
 
 The base install covers conversion, composition, reading, training batches,
@@ -53,9 +53,9 @@ pairing and in-memory AnnData export. Optional extras add the rest:
 | `scorpus[all]` | all of the above | |
 
 ```bash
-pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.6.0"
 # RAPIDS wheels come from NVIDIA's package index:
-pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0" \
+pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.6.0" \
     --extra-index-url https://pypi.nvidia.com
 ```
 
@@ -194,8 +194,7 @@ tool, so the pun was irresistible.
 Look at what our charioteer is holding: a lance, raised high. That is no
 accident: every corpus rides on [Lance](https://github.com/lancedb/lance), the
 columnar format that lets scorpus pick any cell off disk as quickly as a lance
-finds its mark. The lance turns up in the wordmark too, as the leg of the **R**,
-and the three cells riding in the chariot are your data, along for the race.
+finds its mark.
 
 <br clear="right">
 

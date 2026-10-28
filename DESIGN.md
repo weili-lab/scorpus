@@ -184,7 +184,7 @@ It builds:
 
 - an expression reader for aggregate or federated Lance
 - a `MetadataIndex` from `canonical-obs.parquet`
-- a `FeatureRegistry` from `canonical-var.parquet`; for older materialized corpora it still reads an existing `hvg.parquet` (new materializations no longer write one; HVGs come from `ex_var`)
+- a `FeatureRegistry` from `canonical-var.parquet` (no HVGs; HVGs come from a standalone corpus's `highly_variable` var column, e.g. in `ex_var`)
 - a `Corpus` object that exposes public loading and inspection methods
 
 Common runtime calls:

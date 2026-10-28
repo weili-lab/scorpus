@@ -169,7 +169,6 @@ class Corpus:
                 dataset_id=dataset_id,
             )
             var_df, n_vars, _mapping = _resolve_var_axis(self, selected, "exact")
-            var_df = _add_dataset_hvg_columns(self, var_df, selected[0])
             obs = _build_obs_dataframe_for_indices(
                 self,
                 indices,
@@ -186,8 +185,6 @@ class Corpus:
             raise ValueError("dataset_id is required when global_row_indices is not provided")
         selected = _normalize_dataset_selection(dataset_id)
         var_df, n_vars, mapping = _resolve_var_axis(self, selected, var_join)
-        if len(selected) == 1:
-            var_df = _add_dataset_hvg_columns(self, var_df, selected[0])
         obs = _build_obs_dataframe(self, selected, obs_columns=obs_columns)
 
         if mapping is None and len(selected) == 1:
@@ -542,30 +539,6 @@ def _load_sorted_var_frame(corpus: Corpus, dataset_id: str) -> pl.DataFrame:
         pl.col("origin_index").cast(pl.Int64, strict=True).alias("origin_index"),
         pl.col("canonical_gene_id").cast(pl.Utf8, strict=True).alias("canonical_gene_id"),
     ).sort("origin_index")
-
-
-def _add_dataset_hvg_columns(
-    corpus: Corpus,
-    var_df: pl.DataFrame,
-    dataset_id: str,
-) -> pl.DataFrame:
-    dataset_index = int(corpus.dataset_index_by_id[dataset_id])
-    local_to_global = corpus.feature_registry.local_to_global_map[
-        dataset_index,
-        : len(var_df),
-    ]
-    hvg_rank = corpus.feature_registry.hvg_rank_matrix[
-        dataset_index,
-        local_to_global,
-    ]
-    highly_variable = corpus.feature_registry.hvg_mask[
-        dataset_index,
-        local_to_global,
-    ]
-    return var_df.with_columns(
-        pl.Series("hvg_rank", hvg_rank.astype(np.int32, copy=False)),
-        pl.Series("highly_variable", highly_variable.astype(bool, copy=False)),
-    )
 
 
 def _resolve_var_axis(

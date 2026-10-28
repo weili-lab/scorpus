@@ -18,20 +18,17 @@ from .index import MetadataIndex
 
 
 def _hvg_ranks(var: pd.DataFrame) -> pl.DataFrame:
-    """Gene-index HVG ranks from scanpy's var columns ``highly_variable`` and ``highly_variable_rank``.
+    """The gene index's HVGs: exactly the genes of the var column ``highly_variable``.
 
-    Only the ``highly_variable`` genes are ranked, 1..n in ``highly_variable_rank``
-    order (scanpy's rank is 0-based and, with ``batch_key``, a median across
-    batches, so ties keep gene order); all other genes get 0. The default HVG
-    count is n, so the gene index's HVG mask is exactly ``highly_variable``.
+    Whoever sets ``highly_variable`` decides the HVGs (any method). The registry
+    stores HVGs as ranks; these carry no order: the ``highly_variable`` genes get
+    1..n in gene order, all others 0, and the default HVG count is n.
     """
     selected = np.flatnonzero(var["highly_variable"].to_numpy(dtype=bool))
-    rank = var["highly_variable_rank"].to_numpy(dtype=np.float64)
-    order = selected[np.argsort(rank[selected], kind="stable")]
     return pl.DataFrame({
-        "origin_index": order,
-        "hvg_rank": np.arange(1, len(order) + 1),
-        "selected_at_default_n_hvg": np.ones(len(order), dtype=bool),
+        "origin_index": selected,
+        "hvg_rank": np.arange(1, len(selected) + 1),
+        "selected_at_default_n_hvg": np.ones(len(selected), dtype=bool),
     })
 
 
@@ -319,8 +316,6 @@ def view_to_anndata(
             else:
                 blocks.append(_read_aligned(*args))
     expression = da.concatenate(blocks, axis=0) if lazy else sparse.vstack(blocks, format="csr")
-    if len(selected) == 1 and "highly_variable" in var:
-        var["hvg_rank"] = registry.hvg_rank_matrix[ds_indices[0], axis]
     result = ad.AnnData(X=expression, obs=pd.concat(obs_parts), var=var)
     # AnnData sparse matrices encode absence as zero; retain the distinction.
     result.varm["feature_presence"] = registry.dataset_has_gene[ds_indices][:, axis].T.copy()

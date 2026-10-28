@@ -182,22 +182,11 @@ def test_to_anndata_exports_whole_dataset_as_csr(tmp_path: Path) -> None:
     assert adata.X.dtype == np.float32
     assert set(adata.obs["dataset_id"]) == {"mock_00"}
     assert adata.var["canonical_gene_id"].to_list() == [f"GENE{i:05d}" for i in range(N_GENES)]
-    assert adata.var["hvg_rank"].to_list() == [0] * N_GENES
-    assert not adata.var["highly_variable"].any()
+    assert "hvg_rank" not in adata.var
 
 
-def test_to_anndata_exports_selected_global_rows_with_hvg_metadata(tmp_path: Path) -> None:
+def test_to_anndata_exports_selected_global_rows(tmp_path: Path) -> None:
     _build_aggregate_lance_corpus(tmp_path)
-    pl.DataFrame(
-        {
-            "origin_index": np.arange(N_GENES, dtype=np.int64),
-            "hvg_rank": np.asarray([4, 1, 7, 2, 8, 3, 6, 5], dtype=np.int32),
-            "selected_at_default_n_hvg": np.asarray(
-                [False, True, False, True, False, True, False, False],
-                dtype=bool,
-            ),
-        }
-    ).write_parquet(tmp_path / "meta" / "mock_00" / "hvg.parquet")
     corpus = load_corpus(tmp_path)
 
     selected = corpus.to_anndata(global_row_indices=[3, 1, 3])
@@ -208,8 +197,6 @@ def test_to_anndata_exports_selected_global_rows_with_hvg_metadata(tmp_path: Pat
     assert selected.obs["dataset_id"].to_list() == ["mock_00"] * 3
     assert (selected.X != whole.X[[3, 1, 3]]).nnz == 0
     assert selected.var["gene_id"].to_list() == [f"ENSG{i:05d}" for i in range(N_GENES)]
-    assert selected.var["hvg_rank"].to_list() == [4, 1, 7, 2, 8, 3, 6, 5]
-    assert selected.var["highly_variable"].to_list() == [False, True, False, True, False, True, False, False]
 
 
 def test_to_anndata_selected_rows_rejects_multiple_datasets(tmp_path: Path) -> None:
