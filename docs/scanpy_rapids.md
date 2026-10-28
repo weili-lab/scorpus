@@ -150,7 +150,7 @@ on a lazy export: two scanpy Dask helpers (`axis_nnz` along genes and
 `check_nonnegative_integers`) join all row chunks into one block. When scanpy is
 installed, `import scorpus` replaces these two helpers with chunk-by-chunk
 versions for the running process (the installed scanpy is not changed), so these
-functions stay lazy. On a 98,927-cell export this cut peak memory
+functions stay lazy. On a 98,927-cell export (2,048-row chunks) this cut peak memory
 from about 24 GB to 3-6 GB with identical results.
 
 ### Chunk size and memory
