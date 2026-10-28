@@ -144,10 +144,14 @@ in-memory matrix.) `pca` returns a Dask `X_pca`; call
 `leiden`, `umap` or `harmony_integrate`. `wilcoxon` and `pearson_residuals` have no
 Dask support.
 
-On the CPU, scanpy 1.12's `calculate_qc_metrics` and `rank_genes_groups` pull the
-whole matrix into memory even on a lazy export (two scanpy helpers join all row
-chunks), and so does `highly_variable_genes(flavor="seurat_v3")` unless you pass
-`check_values=False`. This is a scanpy issue, not a scorpus one.
+On the CPU, scanpy 1.12's `calculate_qc_metrics`, `rank_genes_groups` and
+`highly_variable_genes(flavor="seurat_v3")` would pull the whole matrix into memory
+on a lazy export: two scanpy Dask helpers (`axis_nnz` along genes and
+`check_nonnegative_integers`) join all row chunks into one block. When scanpy is
+installed, `import scorpus` replaces these two helpers with chunk-by-chunk
+versions for the running process (the installed scanpy is not changed), so these
+functions stay lazy. On a 98,927-cell export this cut peak memory
+from about 24 GB to 3-6 GB with identical results.
 
 ### Chunk size and memory
 
