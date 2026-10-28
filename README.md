@@ -194,8 +194,7 @@ tool, so the pun was irresistible.
 Look at what our charioteer is holding: a lance, raised high. That is no
 accident: every corpus rides on [Lance](https://github.com/lancedb/lance), the
 columnar format that lets scorpus pick any cell off disk as quickly as a lance
-finds its mark. The lance turns up in the wordmark too, as the leg of the **R**,
-and the three cells riding in the chariot are your data, along for the race.
+finds its mark.
 
 <br clear="right">
 
