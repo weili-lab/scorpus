@@ -15,6 +15,10 @@ ready to hand back to AnnData.**
 
 [![tests](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml)
 [![ruff](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml)
+[![docs](https://readthedocs.org/projects/scorpus/badge/?version=latest)](https://scorpus.readthedocs.io/en/latest/)
+[![release](https://img.shields.io/github/v/release/weili-lab/scorpus)](https://github.com/weili-lab/scorpus/releases)
+[![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
 
@@ -184,3 +188,7 @@ and the three cells riding in the chariot are your data, along for the race.
   interrupted run cannot be mistaken for a complete corpus.
 - Only the selected matrix and its obs/var are converted. Other layers, `obsm`,
   `obsp`, and `uns` are not copied.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
