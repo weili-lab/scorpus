@@ -5,24 +5,47 @@ their own tensors from what scorpus reads.
 
 ## Install the package
 
-```bash
-git clone https://github.com/weili-lab/scorpus.git
-cd scorpus
+Install a release straight from GitHub (the tag pins the version):
 
+```bash
 # conda/mamba, or any other environment manager
 conda create -n scorpus python=3.12 -y
 conda activate scorpus
 
+pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+```
+
+or, to work on scorpus itself, from a clone:
+
+```bash
+git clone https://github.com/weili-lab/scorpus.git
+cd scorpus
 pip install -e .
 ```
 
-This covers conversion, composition, reading, pairing and AnnData export.
+The base install covers conversion, composition, reading, training batches,
+pairing and in-memory AnnData export (`to_anndata`). Optional extras add the
+rest; with a clone, write them as `pip install -e ".[scanpy]"`:
 
-Optional extras:
+| Extra | Adds | For |
+|---|---|---|
+| `lazy` | dask | `to_anndata_lazy()` and `write_h5ad()`: AnnData whose counts stay on disk |
+| `scanpy` | dask, scanpy | Scanpy on the lazy export (CPU) |
+| `gpu` | dask, cupy, rapids-singlecell | rapids-singlecell on a lazy export whose chunks live on the GPU (CUDA 12) |
+| `all` | all of the above | |
+| `demo` | `scanpy` plus requests | the walkthrough notebooks |
+| `docs` | sphinx, myst-nb, furo | building this site |
 
 ```bash
-pip install -e ".[demo]"   # scanpy, dask[dataframe], requests, tqdm: the walkthroughs
-pip install -e ".[docs]"   # sphinx, myst-nb, furo: build this site
+pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+```
+
+RAPIDS wheels come from NVIDIA's package index, so the GPU extra needs it as
+well:
+
+```bash
+pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0" \
+    --extra-index-url https://pypi.nvidia.com
 ```
 
 Check the install:

@@ -39,8 +39,27 @@ It is built for three jobs:
 ## Install
 
 ```bash
-pip install -e .           # conversion, composition, reading, pairing, AnnData export
+pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
 ```
+
+The base install covers conversion, composition, reading, training batches,
+pairing and in-memory AnnData export. Optional extras add the rest:
+
+| Extra | Adds | For |
+|---|---|---|
+| `scorpus[lazy]` | dask | `to_anndata_lazy()` and `write_h5ad()`: AnnData whose counts stay on disk |
+| `scorpus[scanpy]` | dask, scanpy | Scanpy on the lazy export (CPU) |
+| `scorpus[gpu]` | dask, cupy, rapids-singlecell | rapids-singlecell on a lazy export whose chunks live on the GPU (CUDA 12) |
+| `scorpus[all]` | all of the above | |
+
+```bash
+pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+# RAPIDS wheels come from NVIDIA's package index:
+pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0" \
+    --extra-index-url https://pypi.nvidia.com
+```
+
+From a clone, use `pip install -e ".[scanpy]"` and so on.
 
 ## Convert
 

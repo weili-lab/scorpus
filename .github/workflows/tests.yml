@@ -7,13 +7,19 @@ on:
 
 jobs:
   pytest:
+    name: pytest (${{ matrix.install }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # base: no optional extras, so the lazy and scanpy tests skip;
+        # scanpy: dask + scanpy. GPU tests skip on both (no CUDA on the runner).
+        install: [".", ".[scanpy]"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
           cache: pip
-      # demo extra brings scanpy for the lazy-export tests; GPU tests skip without CUDA.
-      - run: pip install -e ".[demo]" pytest
-      - run: pytest -q
+      - run: pip install -e "${{ matrix.install }}" pytest
+      - run: pytest -q -rs

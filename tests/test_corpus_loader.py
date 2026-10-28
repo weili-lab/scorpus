@@ -311,6 +311,7 @@ def test_to_anndata_var_join_inner_no_common_genes(tmp_path: Path) -> None:
 
 
 def test_to_anndata_lazy_var_join_inner_intersection(tmp_path: Path) -> None:
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     import dask.array as da
     import scipy.sparse as sp
 
@@ -335,6 +336,7 @@ def test_to_anndata_lazy_var_join_inner_intersection(tmp_path: Path) -> None:
 
 
 def test_to_anndata_lazy_builds_dask_sparse_x(tmp_path: Path) -> None:
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     import dask.array as da
     import scipy.sparse as sp
 
@@ -353,6 +355,7 @@ def test_to_anndata_lazy_builds_dask_sparse_x(tmp_path: Path) -> None:
 
 
 def test_to_anndata_lazy_rejects_unknown_device(tmp_path: Path) -> None:
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     _build_aggregate_lance_corpus(tmp_path)
     corpus = load_corpus(tmp_path)
 

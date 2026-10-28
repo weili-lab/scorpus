@@ -11,7 +11,7 @@ import polars as pl
 import yaml
 from scipy import sparse
 
-from .corpus_loader import LAZY_CHUNK_ROWS, Corpus, _cupy_device_id, _lazy_sparse_meta, ex_path
+from .corpus_loader import LAZY_CHUNK_ROWS, Corpus, _cupy_device_id, _import_dask, _lazy_sparse_meta, ex_path
 from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
@@ -245,9 +245,9 @@ def view_to_anndata(
     GPU each Dask chunk is a CuPy CSR matrix.
     """
     import anndata as ad
-    import dask.array as da
-    from dask import delayed
 
+    if lazy:
+        da, delayed = _import_dask()
     if chunk_rows <= 0 or var_join not in {"exact", "inner", "outer"}:
         raise ValueError("Use positive chunk_rows and var_join='exact', 'inner', or 'outer'")
     selected = list(corpus.dataset_ids) if dataset_id is None else ([dataset_id] if isinstance(dataset_id, str) else list(dataset_id))

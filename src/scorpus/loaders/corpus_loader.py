@@ -801,6 +801,16 @@ def _read_expression_sparse_block(
     return _expression_batch_to_cupy_csr(batch, n_vars=n_vars, device=device, local_to_output=local_to_output)
 
 
+def _import_dask():
+    """dask is an optional dependency (the ``lazy`` extra), needed only for lazy export."""
+    try:
+        import dask.array as da
+        from dask import delayed
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError("Lazy export needs dask: pip install 'scorpus[lazy]'") from err
+    return da, delayed
+
+
 def _build_lazy_expression_matrix(
     corpus: Corpus,
     dataset_ids: Sequence[str],
@@ -810,8 +820,7 @@ def _build_lazy_expression_matrix(
     device: str,
     per_dataset_local_to_output: dict[str, np.ndarray] | None = None,
 ):
-    import dask.array as da
-    from dask import delayed
+    da, delayed = _import_dask()
 
     entries = _entry_map(corpus)
     blocks = []

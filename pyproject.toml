@@ -17,12 +17,30 @@ dependencies = [
     "polars>=1.0",
     "pyarrow>=18",
     "pylance>=0.20",
-    "dask[array]>=2024",
     "PyYAML>=6.0",
     "scipy>=1.14",
 ]
 
 [project.optional-dependencies]
+# to_anndata_lazy / write_h5ad: expression as a Dask array that stays on disk.
+lazy = [
+    "dask[array]>=2024",
+]
+# scanpy on the lazy export; scorpus patches two scanpy 1.12 Dask helpers on import.
+scanpy = [
+    "scorpus[lazy]",
+    "scanpy>=1.12",
+]
+# rapids-singlecell on a CuPy lazy export (CUDA 12). RAPIDS wheels also need
+# --extra-index-url https://pypi.nvidia.com
+gpu = [
+    "scorpus[lazy]",
+    "cupy-cuda12x>=13",
+    "rapids-singlecell-cu12>=0.18",
+]
+all = [
+    "scorpus[scanpy,gpu]",
+]
 # Sphinx toolchain used to build docs/ on ReadTheDocs (no autodoc, so scorpus's
 # own imports are not exercised by the doc build).
 docs = [
@@ -30,8 +48,9 @@ docs = [
     "myst-nb>=1.0",
     "furo",
 ]
+# The walkthrough notebooks.
 demo = [
-    "scanpy>=1.10",
+    "scorpus[scanpy]",
     "dask[dataframe]>=2024",
     "requests>=2.31",
 ]
