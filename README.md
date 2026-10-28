@@ -19,6 +19,9 @@ ready to hand back to AnnData.**
 
 `scorpus` turns single-cell `.h5ad` files into sparse on-disk corpora that are
 cheap to random-access, easy to compose, and ready to hand back to AnnData.
+Counts are stored as [Lance](https://github.com/lancedb/lance) tables, one row
+per cell, so any set of cells can be read straight off disk without loading the
+rest.
 
 It is built for three jobs:
 
@@ -94,7 +97,7 @@ outer join are never mistaken for measured zeros.
 ## Hand back to AnnData
 
 ```python
-adata = corpus.to_anndata_lazy(chunk_rows=4096)   # Dask X, stays on disk
+adata = corpus.to_anndata_lazy()                  # Dask X in 8,192-cell chunks, stays on disk
 small = corpus.to_anndata(global_row_indices=[2, 0, 5])   # eager, selected rows
 corpus.write_h5ad("export.h5ad")                  # new file, reopen backed="r"
 ```
@@ -139,7 +142,7 @@ The full documentation, including installation, tutorials and guides, is at
 - [Conversion and composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html): start here
 - [Pairing source and target cells](https://scorpus.readthedocs.io/en/latest/pairing.html) and the [pairing walkthrough](https://scorpus.readthedocs.io/en/latest/tutorials/pairing_walkthrough.html)
 - [AnnData / Scanpy / RAPIDS handoff](https://scorpus.readthedocs.io/en/latest/anndata_scanpy_handoff.html)
-- [Architecture](https://scorpus.readthedocs.io/en/latest/design.html) and [backend policy](https://scorpus.readthedocs.io/en/latest/backend_note.html)
+- [Architecture](https://scorpus.readthedocs.io/en/latest/design.html) and [storage backend (Lance)](https://scorpus.readthedocs.io/en/latest/backend_note.html)
 
 The site is built from `docs/` (Sphinx, see `.readthedocs.yaml`); edit the pages
 there.
@@ -161,6 +164,12 @@ Scorpus was the most celebrated charioteer of first-century Rome, winning over
 two thousand races before dying young in the Circus Maximus. The name fits a
 library whose whole job is moving single-cell data quickly — and it is a corpus
 tool, so the pun was irresistible.
+
+Look at what our charioteer is holding: a lance, raised high. That is no
+accident: every corpus rides on [Lance](https://github.com/lancedb/lance), the
+columnar format that lets scorpus pick any cell off disk as quickly as a lance
+finds its mark. The lance turns up in the wordmark too, as the leg of the **R**,
+and the three cells riding in the chariot are your data, along for the race.
 
 <br clear="right">
 

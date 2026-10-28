@@ -6,6 +6,9 @@ hand back to AnnData.**
 `scorpus` turns `.h5ad` files into sparse on-disk corpora. Conversion is one
 call, with no schema and no intermediate files, and composing several datasets
 into a training corpus is ordinary pandas plus an explicit column mapping.
+Counts are stored as [Lance](https://github.com/lancedb/lance) tables, one row
+per cell, so any set of cells can be read straight off disk without loading the
+rest.
 
 ```python
 from scorpus import from_h5ad
@@ -93,6 +96,12 @@ Scorpus was the most celebrated charioteer of first-century Rome, winning over
 two thousand races before dying young in the Circus Maximus. The name fits a
 library whose whole job is moving single-cell data quickly, and it is a corpus
 tool, so the pun was irresistible.
+
+Look at what our charioteer is holding: a lance, raised high. That is no
+accident: every corpus rides on [Lance](https://github.com/lancedb/lance), the
+columnar format that lets scorpus pick any cell off disk as quickly as a lance
+finds its mark. The lance turns up in the wordmark too, as the leg of the **R**,
+and the three cells riding in the chariot are your data, along for the race.
 
 ## Links
 
