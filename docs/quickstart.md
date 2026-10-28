@@ -128,7 +128,8 @@ corpus.write_h5ad("export.h5ad")                         # reopen with backed="r
 ```
 
 After export, Scanpy or RAPIDS owns normalization, PCA, neighbors, UMAP and
-clustering. Join results back with `corpus.add_obs_meta(...)`. See the
+clustering. Add results back with `corpus.add_obs_meta(...)` and save them with the
+corpus with `corpus.save_ex_obs()` / `corpus.save_ex_var()`. See the
 [AnnData handoff](anndata_scanpy_handoff.md).
 
 ## Read cells for training

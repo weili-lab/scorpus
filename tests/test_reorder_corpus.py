@@ -63,11 +63,8 @@ def test_reordered_corpus_round_trips_in_both_layouts(tmp_path, monkeypatch, flo
         corpus = load_corpus(root)
         assert_same_batch(corpus.expression_reader.read_expression_flat(new_rows), expected)
         pd.testing.assert_frame_equal(corpus.obs, source.obs.iloc[order])
+        assert ("scorpus_total_counts" in corpus.obs) == (not float_counts)
         np.testing.assert_array_equal(corpus.read_extra("guide_umi", new_rows)[0].toarray(), expected_guides)
-        if not float_counts:
-            pd.testing.assert_frame_equal(pd.read_parquet(root / "statistics.parquet"),
-                                          pd.read_parquet(tmp_path / "source" / "statistics.parquet").iloc[order]
-                                          .reset_index(drop=True))
         for table in ["expression.lance", "extra/guide_umi.lance"]:
             rows = lance.dataset(root / table).to_table(columns=["global_row_index", "source_row"])
             np.testing.assert_array_equal(rows["global_row_index"].to_numpy(), new_rows)
@@ -88,9 +85,8 @@ def test_parallel_rewrite_equals_serial_row_for_row(tmp_path, monkeypatch):
     for table in ["expression.lance", "extra/guide_umi.lance"]:
         serial = lance.dataset(tmp_path / "serial" / table).to_table()
         assert lance.dataset(tmp_path / "parallel" / table).to_table().equals(serial)
-    for name in ["obs.parquet", "statistics.parquet"]:
-        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "parallel" / name),
-                                      pd.read_parquet(tmp_path / "serial" / name))
+    pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "parallel" / "obs.parquet"),
+                                  pd.read_parquet(tmp_path / "serial" / "obs.parquet"))
 
 
 def test_commit_refuses_fragments_out_of_row_order(tmp_path):
@@ -119,8 +115,6 @@ def test_filtered_rewrite_holds_exactly_the_kept_cells(tmp_path, monkeypatch):
     np.testing.assert_array_equal(corpus.read_extra("guide_umi", new_rows)[0].toarray(),
                                   source.read_extra("guide_umi", order)[0].toarray())
     pd.testing.assert_frame_equal(corpus.obs, source.obs.iloc[order])
-    np.testing.assert_array_equal(corpus.metadata_index.df["size_factor"].to_numpy(),
-                                  source.metadata_index.df["size_factor"].to_numpy()[order])
     rows = lance.dataset(tmp_path / "filtered" / "expression.lance").to_table(columns=["global_row_index", "source_row"])
     np.testing.assert_array_equal(rows["global_row_index"].to_numpy(), new_rows)
     np.testing.assert_array_equal(rows["source_row"].to_numpy(), order)
@@ -150,9 +144,8 @@ def test_bins_rewrite_equals_parallel_rewrite_row_for_row(tmp_path, monkeypatch,
         bins = lance.dataset(tmp_path / "bins" / table)
         assert len(parallel.get_fragments()) == len(bins.get_fragments()) == workers
         assert bins.to_table().equals(parallel.to_table())
-    for name in ["obs.parquet", "statistics.parquet"]:
-        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "bins" / name),
-                                      pd.read_parquet(tmp_path / "parallel" / name))
+    pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "bins" / "obs.parquet"),
+                                  pd.read_parquet(tmp_path / "parallel" / "obs.parquet"))
     assert (tmp_path / "bins" / "corpus.yaml").read_text() == (tmp_path / "parallel" / "corpus.yaml").read_text()
     assert list((tmp_path / "bins_temp").iterdir()) == []
 

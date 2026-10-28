@@ -6,6 +6,11 @@
 keep=rows)` keeps only the given rows (for example the cells passing your own QC filter):
 the new corpus holds only those cells.
 
+Saved results follow the cells: every `ex_obs.parquet` / `ex_obs_<name>.parquet` is
+written in the new order (and filtered with it), next to `obs.parquet`, and every
+`ex_var.parquet` / `ex_var_<name>.parquet` is copied with `var.parquet`, so
+`load_corpus(new, ex_obs=...)` returns the same results on the same cells.
+
 `scorpus.stage` / `scorpus.staged` copy corpora to faster storage first (node-local NVMe,
 or RAM under `/dev/shm`).
 
@@ -17,9 +22,13 @@ corpus = load_corpus("source.corpus")
 order, blocks = write_order(make_groups(corpus.obs, ["perturbation", "condition"]), seed=0, keep=kept_rows)
 note = {"by": ["perturbation", "condition"], "seed": 0, "source": "source.corpus"}
 
-with staged(["source.corpus"], "/scratch1/me/job") as [local_source]:
-    reorder_corpus(local_source, "/scratch1/me/job/new.corpus", order, note, workers=8)
+if __name__ == "__main__":
+    with staged(["source.corpus"], "/scratch1/me/job") as [local_source]:
+        reorder_corpus(local_source, "/scratch1/me/job/new.corpus", order, note, workers=8)
 ```
+
+With `workers > 1` the workers are spawned processes that re-import your script, so the call
+must sit under `if __name__ == "__main__":`; without it the pool fails with `BrokenProcessPool`.
 
 ## Choosing a route
 

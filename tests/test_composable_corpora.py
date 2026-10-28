@@ -1,3 +1,5 @@
+import pickle
+
 import anndata as ad
 import numpy as np
 import pandas as pd
@@ -27,14 +29,17 @@ def test_original_metadata_and_lazy_roundtrip(tmp_path):
     path, data = write_data(tmp_path)
     corpus = from_h5ad(path, tmp_path / "corpus", chunk_rows=2)
     assert not (tmp_path / "corpus" / "canonical-obs.parquet").exists()
-    pd.testing.assert_frame_equal(corpus.obs, data.obs)
+    assert not (tmp_path / "corpus" / "statistics.parquet").exists()
+    # Original obs plus each cell's exact total count; nothing median-derived.
+    expected_obs = data.obs.assign(scorpus_total_counts=np.asarray([3.0, 0.0, 4.0, 0.0]))
+    pd.testing.assert_frame_equal(corpus.obs, expected_obs)
     pd.testing.assert_frame_equal(corpus.var, data.var)
     loaded = load_corpus(tmp_path / "corpus")
     eager = loaded.to_anndata()
     lazy = loaded.to_anndata_lazy(chunk_rows=2)
     np.testing.assert_array_equal(eager.X.toarray(), data.X.toarray())
     np.testing.assert_array_equal(lazy.X.compute().toarray(), data.X.toarray())
-    pd.testing.assert_frame_equal(lazy.obs, data.obs)
+    pd.testing.assert_frame_equal(lazy.obs, expected_obs)
     pd.testing.assert_frame_equal(lazy.var, data.var)
     output = tmp_path / "export.h5ad"
     loaded.write_h5ad(output, chunk_rows=2)
@@ -42,13 +47,22 @@ def test_original_metadata_and_lazy_roundtrip(tmp_path):
     try:
         assert backed.isbacked
         np.testing.assert_array_equal(backed.X[:].toarray(), data.X.toarray())
-        pd.testing.assert_frame_equal(backed.obs, data.obs)
+        pd.testing.assert_frame_equal(backed.obs, expected_obs)
     finally:
         backed.file.close()
     reordered = loaded.to_anndata(global_row_indices=[3, 0, 1, 0])
     np.testing.assert_array_equal(reordered.X.toarray(), data.X[[3, 0, 1, 0]].toarray())
     with pytest.raises(FileExistsError):
         from_h5ad(path, tmp_path / "corpus")
+
+
+def test_source_obs_with_total_counts_column_is_refused(tmp_path):
+    path, data = write_data(tmp_path)
+    data.obs["scorpus_total_counts"] = 1.0
+    data.write_h5ad(path)
+    with pytest.raises(ValueError, match="already has a 'scorpus_total_counts' column"):
+        from_h5ad(path, tmp_path / "clash")
+    assert not (tmp_path / "clash").exists()
 
 
 def test_recovery_is_explicit(tmp_path):
@@ -74,7 +88,7 @@ def test_explicit_non_count_preserves_floats(tmp_path):
     actual = corpus.to_anndata_lazy(chunk_rows=2).X.compute()
     assert actual.dtype == values.dtype
     np.testing.assert_array_equal(actual.toarray(), values)
-    assert "size_factor" not in corpus.metadata_index.df.columns
+    assert "scorpus_total_counts" not in corpus.obs.columns
 
 
 def test_raw_uses_its_own_feature_metadata(tmp_path):
@@ -130,22 +144,33 @@ def test_composition_alignment_and_no_copy(tmp_path):
         concat({"a": a, "b": b}, obs={"a": a.obs.iloc[::-1], "b": b.obs})
 
 
+def test_view_reader_pickles_without_member_corpora(tmp_path):
+    """A view's reader is what DataLoader workers get: table paths and row ranges, not the members' obs."""
+    path_a, _ = write_data(tmp_path, "a")
+    path_b, _ = write_data(tmp_path, "b", genes=("g3", "g1", "g4"))
+    view = concat({"a": from_h5ad(path_a, tmp_path / "a"), "b": from_h5ad(path_b, tmp_path / "b")})
+    payload = pickle.dumps(view.expression_reader)
+    assert b"DataFrame" not in payload and b"barcode" not in payload
+    rows = [6, 0, 7, 6, 2]
+    expected = view.expression_reader.read_expression_flat(rows)
+    actual = pickle.loads(payload).read_expression_flat(rows)
+    for field in ("global_row_index", "row_offsets", "expressed_gene_indices", "expression_counts"):
+        np.testing.assert_array_equal(getattr(actual, field), getattr(expected, field))
+
+
 def test_cli_conversion(tmp_path, monkeypatch):
     from scorpus.cli import main
     path, _ = write_data(tmp_path)
     monkeypatch.setattr("sys.argv", ["pdl", "convert", "--source", str(path), "--output", str(tmp_path / "cli"), "--chunk-rows", "2"])
     main()
-    assert load_corpus(tmp_path / "cli").obs.shape == (4, 3)
+    assert "scorpus_total_counts" in load_corpus(tmp_path / "cli").obs
 
 
 def test_explicit_zero_counts_and_runtime_metadata(tmp_path):
     path, _ = write_data(tmp_path, values=np.zeros((4, 3), dtype=np.int32))
     corpus = from_h5ad(path, tmp_path / "zeros", layers="X", chunk_rows=2)
     assert not corpus.to_anndata().X.nnz
-    corpus.add_obs_meta(
-        pd.DataFrame({"global_row_index": [2, 0, 3, 1], "new_label": ["c", "a", "d", "b"]}),
-        on=["global_row_index"],
-    )
+    corpus.add_obs_meta(pd.DataFrame({"new_label": ["a", "b", "c", "d"]}, index=corpus.obs.index))
     assert corpus.obs["new_label"].tolist() == ["a", "b", "c", "d"]
     assert corpus.to_anndata_lazy().obs["new_label"].tolist() == ["a", "b", "c", "d"]
     assert "new_label" not in load_corpus(tmp_path / "zeros").obs
@@ -161,3 +186,40 @@ def test_full_scan_rejects_unsampled_bad_counts(tmp_path):
     with pytest.raises(ValueError, match="finite and nonnegative"):
         from_h5ad(path, tmp_path / "bad_corpus", chunk_rows=7)
     assert not (tmp_path / "bad_corpus" / "corpus.yaml").exists()
+
+
+def plain_csr(values, columns):
+    """CSR built the plain way: each row's nonzero values in stored gene order, at
+    their output column. Column -1 marks a gene the inner-join mapping leaves off the axis; it is dropped."""
+    data, indices, indptr = [], [], [0]
+    for row in values:
+        for value, column in zip(row, columns):
+            if value and column >= 0:
+                data.append(value)
+                indices.append(column)
+        indptr.append(len(data))
+    return data, indices, indptr
+
+
+def test_lazy_chunks_match_plain_csr(tmp_path):
+    """Every lazy chunk keeps values, column order and dtypes, with and without genes dropped by an inner join."""
+    # Leading, consecutive and trailing empty rows within the 3-row chunks.
+    values = np.array([[0, 0, 0], [1, 0, 2], [0, 0, 0], [3, 1, 4]], dtype=np.int32)
+    a = from_h5ad(write_data(tmp_path, "a", values=values)[0], tmp_path / "a", chunk_rows=2)
+    b = from_h5ad(write_data(tmp_path, "b", values=values, genes=("g3", "g1", "g4"))[0], tmp_path / "b", chunk_rows=2)
+    view = concat({"a": a, "b": b}, feature_key={"a": "symbol", "b": "symbol"})
+    # Output column of each member gene: outer axis g1 g2 g3 g4, inner axis g1 g3 (-1: off the inner-join axis).
+    cases = [(a, {}, [[0, 1, 2]]), (view, {"var_join": "outer"}, [[0, 1, 2], [2, 0, 3]]),
+             (view, {"var_join": "inner"}, [[0, -1, 1], [1, 0, -1]])]
+    for corpus, kwargs, member_columns in cases:
+        x = corpus.to_anndata_lazy(chunk_rows=3, **kwargs).X
+        chunks = [x.blocks[i].compute() for i in range(x.numblocks[0])]
+        expected = [plain_csr(values[start:start + 3], columns) for columns in member_columns for start in (0, 3)]
+        assert len(chunks) == len(expected)
+        for chunk, (data, indices, indptr) in zip(chunks, expected):
+            assert (chunk.data.dtype, chunk.indices.dtype, chunk.indptr.dtype) == (np.int32, np.int32, np.int32)
+            np.testing.assert_array_equal(chunk.data, data)
+            np.testing.assert_array_equal(chunk.indices, indices)
+            np.testing.assert_array_equal(chunk.indptr, indptr)
+            # Chunks may be changed in place downstream (e.g. log1p on .data).
+            assert chunk.data.flags.writeable and chunk.indices.flags.writeable and chunk.indptr.flags.writeable

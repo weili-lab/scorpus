@@ -33,14 +33,14 @@ Use this when you want one dataset exactly as-is:
 adata_marson = corpus.to_anndata_lazy(
     dataset_id="marson_d2_rest",
     obs_columns=["perturb_label", "condition", "cell_context", "batch_id"],
-    chunk_rows=1024,
 )
 
 print(adata_marson.shape)
 print(type(adata_marson.X))
 ```
 
-`adata_marson.X` stays Dask-backed, so the count matrix is still read in chunks.
+`adata_marson.X` stays Dask-backed, so the count matrix is still read in chunks
+of `chunk_rows` cells (default 65,536; lower it if memory runs short).
 
 ## Cross-dataset lazy AnnData with native gene axes
 
@@ -51,7 +51,6 @@ That means cross-dataset export needs an explicit join rule.
 adata = corpus.to_anndata_lazy(
     dataset_id=["marson_d2_rest", "xorion_hct116_dual_guide"],
     obs_columns=["perturb_label", "condition", "cell_context", "batch_id"],
-    chunk_rows=1024,
     var_join="inner",
 )
 
@@ -119,6 +118,43 @@ rsc.pp.highly_variable_genes(adata_gpu, n_top_genes=2000)
 print(type(adata_gpu.X))
 print(int(adata_gpu.var["highly_variable"].sum()))
 ```
+
+To keep the matrix on disk instead, export lazily with `device="cuda"`: every
+Dask chunk is then a CuPy CSR matrix, so no `anndata_to_GPU` call is needed. This
+works for a standalone corpus from `from_h5ad`, a `concat` view, and the older
+canonical corpora:
+
+```python
+corpus = load_corpus("my.corpus")
+adata_gpu = corpus.to_anndata_lazy(device="cuda")
+
+rsc.pp.normalize_total(adata_gpu, target_sum=1e4)
+rsc.pp.log1p(adata_gpu)
+```
+
+Integer counts arrive on the GPU as float32. RAPIDS Dask support is
+function-specific. Tested with rapids-singlecell 0.18.1 (the prebuilt wheel is
+named `rapids-singlecell-cu12`; plain `rapids-singlecell` is source-only) and
+RAPIDS 26.10: `calculate_qc_metrics`, `normalize_total`, `log1p`,
+`highly_variable_genes` (`seurat`, `cell_ranger`, `seurat_v3` with `batch_key`),
+`scale`, `pca`, `regress_out`, `rank_genes_groups(method="t-test")` and
+`get.aggregate` run on the lazy GPU matrix. (With 0.14.1, `seurat_v3` needed an
+in-memory matrix.) `pca` returns a Dask `X_pca`; call
+`adata.obsm["X_pca"] = adata.obsm["X_pca"].compute()` before `neighbors`,
+`leiden`, `umap` or `harmony_integrate`. `wilcoxon` and `pearson_residuals` have no
+Dask support.
+
+On the CPU, scanpy 1.12's `calculate_qc_metrics` and `rank_genes_groups` pull the
+whole matrix into memory even on a lazy export (two scanpy helpers join all row
+chunks), and so does `highly_variable_genes(flavor="seurat_v3")` unless you pass
+`check_values=False`. This is a scanpy issue, not a scorpus one.
+
+### Chunk size and memory
+
+Each Dask chunk is built in memory before it is used, and Dask works on several
+chunks at once (one per thread). Budget about `chunk_rows` x threads x 3 times the
+size of one chunk's CSR matrix (the read buffers plus one copy of the matrix). If
+memory runs short, lower `chunk_rows`.
 
 If your environment does not provide CUDA or `rapids_singlecell`, treat this as
 an optional extension and record the blocker explicitly.

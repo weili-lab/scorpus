@@ -27,7 +27,8 @@ NO_COUNTS = (
 RECOVERY_POSSIBLE = 'raw count possible, please convert with attempt_conversion=True'
 
 MANIFEST = {"format": "scorpus", "version": 1, "backend": "lance"}
-SIZE_FACTOR_METHOD = "library_sum/median_positive_library_sum; empty_cells=1"
+# Obs column with each cell's sum of stored counts (count corpora only).
+TOTAL_COUNTS = "scorpus_total_counts"
 
 # Genes read per pass over an on-disk CSC matrix (see _csc_to_row_buckets).
 CSC_GENES_PER_BLOCK = 512
@@ -150,22 +151,14 @@ def _read_row_bucket(path: Path, record: np.dtype, n_rows: int, n_genes: int) ->
     return sparse.csr_matrix((entries["value"], (entries["row"], entries["gene"])), shape=(n_rows, n_genes))
 
 
-def _write_metadata(output: Path, obs, var, row_sums, manifest: dict) -> None:
-    """Write obs/var and size factors, then the manifest last.
+def _write_metadata(output: Path, obs, var, manifest: dict) -> None:
+    """Write obs and var, then the manifest last.
 
     An interrupted output therefore has no corpus.yaml and cannot be mistaken
     for a complete corpus.
     """
     obs.to_parquet(output / "obs.parquet")
     var.to_parquet(output / "var.parquet")
-    if row_sums is not None:
-        # Empty cells retain a finite factor; their raw row sum remains zero.
-        positive = row_sums[row_sums > 0]
-        median = float(np.median(positive)) if len(positive) else 1.0
-        factors = np.where(row_sums > 0, row_sums / median, 1.0)
-        pd.DataFrame({"row_sum": row_sums, "size_factor": factors}).to_parquet(
-            output / "statistics.parquet", index=False,
-        )
     (output / "corpus.yaml").write_text(yaml.safe_dump(manifest, sort_keys=False))
 
 
@@ -191,8 +184,9 @@ def from_h5ad(
     value)`` keeps only matching features, and ``extra={name: (h5_path, names)}``
     also stores per-cell matrices such as guide UMIs (read back with
     ``Corpus.read_extra``). A CSC matrix is regrouped by rows through temporary
-    files in ``csc_tmp_dir``. Every chunk is validated. Outputs must not exist;
-    the manifest is written last. See docs/composable_corpora.md.
+    files in ``csc_tmp_dir``. Every chunk is validated. Count corpora get each
+    cell's sum of stored counts as obs column ``scorpus_total_counts``. Outputs
+    must not exist; the manifest is written last. See docs/composable_corpora.md.
     """
     from .loaders import load_corpus
 
@@ -210,6 +204,8 @@ def from_h5ad(
         obs = ad.io.read_elem(handle["obs"])
         if len(obs) == 0:
             raise ValueError("Cannot convert a dataset with no cells")
+        if TOTAL_COUNTS in obs.columns:
+            raise ValueError(f"Source obs already has a {TOTAL_COUNTS!r} column; rename or drop it first")
         # These explicit routes are not probed; every chunk is validated anyway.
         if layers is not None and (no_count or round_counts or features is not None or _is_csc(handle, layers)):
             selected, recover = layers, False
@@ -285,7 +281,6 @@ def from_h5ad(
             "shape": [len(obs), len(var)],
             "dtype": str(bundle.counts.dtype),
             "recovery": "expm1/min_nonzero_expm1_per_cell" if recover else None,
-            "size_factor_method": None if no_count else SIZE_FACTOR_METHOD,
         }
         if features is not None:
             manifest["features"] = {"var_column": features[0], "value": features[1]}
@@ -295,7 +290,9 @@ def from_h5ad(
         if extra:
             manifest["extra"] = {name: {"source": path, "n_features": len(feature_names)}
                                  for name, (path, feature_names) in extra.items()}
-        _write_metadata(output, obs, var, None if no_count else row_sums, manifest)
+        if not no_count:
+            obs[TOTAL_COUNTS] = row_sums  # obs is this function's own copy, read from the file
+        _write_metadata(output, obs, var, manifest)
     return load_corpus(output)
 
 
@@ -346,8 +343,8 @@ def from_10x_h5_files(
 
     ``files`` maps a file id to its path. ``cells`` has one row per output cell,
     in output order, with columns ``file_id`` and ``local_row`` (the cell's row
-    in that file); it is stored unchanged as obs. ``genes`` is the var table,
-    indexed by gene id: each file's "Gene Expression" features are matched to it
+    in that file); it is stored as obs, plus each cell's ``scorpus_total_counts``.
+    ``genes`` is the var table, indexed by gene id: each file's "Gene Expression" features are matched to it
     by id, so files may list genes in different orders. ``guides`` (optional,
     indexed by guide id) does the same for "CRISPR Guide Capture" features, which
     are stored as the extra matrix ``guide_umi``. h5ad files (counts in X, gene
@@ -358,6 +355,8 @@ def from_10x_h5_files(
     output = Path(output)
     if output.exists():
         raise FileExistsError(output)
+    if TOTAL_COUNTS in cells.columns:
+        raise ValueError(f"cells already has a {TOTAL_COUNTS!r} column; rename or drop it first")
     output.mkdir(parents=True)
     if guides is not None:
         (output / "extra").mkdir()
@@ -395,11 +394,12 @@ def from_10x_h5_files(
         **MANIFEST, "source": sorted(str(Path(files[f]).resolve()) for f in set(file_ids)),
         "matrix_source": "10x Gene Expression features", "expression_kind": "counts",
         "shape": [len(cells), len(genes)], "dtype": str(bundle.counts.dtype), "recovery": None,
-        "size_factor_method": SIZE_FACTOR_METHOD,
     }
     if guides is not None:
         guides.to_parquet(output / "extra" / "guide_umi_features.parquet")
         manifest["extra"] = {"guide_umi": {"source": "10x CRISPR Guide Capture features",
                                            "n_features": len(guides)}}
-    _write_metadata(output, cells, genes, row_sums, manifest)
+    obs = cells.copy()
+    obs[TOTAL_COUNTS] = row_sums
+    _write_metadata(output, obs, genes, manifest)
     return load_corpus(output)

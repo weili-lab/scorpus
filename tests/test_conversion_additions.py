@@ -120,5 +120,6 @@ def test_10x_files_map_genes_by_id(tmp_path):
     guide_umi, features = corpus.read_extra("guide_umi", range(len(cells)))
     np.testing.assert_array_equal(guide_umi.toarray(), expected_guides)
     pd.testing.assert_frame_equal(features, guides)
-    pd.testing.assert_frame_equal(corpus.obs, cells)
+    expected_totals = np.sum(expected_genes, axis=1).astype(np.float64)  # gene counts only, not guides
+    pd.testing.assert_frame_equal(corpus.obs, cells.assign(scorpus_total_counts=expected_totals))
     pd.testing.assert_frame_equal(corpus.var, genes)

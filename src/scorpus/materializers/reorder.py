@@ -1,7 +1,8 @@
 """Rewrite a standalone corpus with its cells in a new order.
 
 Every per-cell table moves together: the expression table, each ``extra/*.lance``
-table, ``obs.parquet`` and ``statistics.parquet``. ``var.parquet`` and the extra
+table, ``obs.parquet`` (with its ``scorpus_total_counts``) and every saved
+``ex_obs*.parquet``. ``var.parquet``, every ``ex_var*.parquet`` and the extra
 feature tables are copied unchanged. With ``pairing.write_order`` as the order,
 each group becomes one contiguous block, shuffled within, so ``Sampler(...,
 run_length=r)`` reads runs of neighbouring rows. An order that leaves out rows
@@ -63,8 +64,8 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
 
     ``layout="packed"`` writes the expression table as one int64 list column
     ``packed`` with values ``(count_bits << 16) | gene`` (see
-    ``loaders.expression._unpack_genes_and_counts``); extra tables, obs, var and
-    statistics are written the same way in both layouts.
+    ``loaders.expression._unpack_genes_and_counts``); extra tables, obs and var
+    are written the same way in both layouts.
     """
     source_root, dest_root = Path(source_root), Path(dest_root)
     order = np.asarray(order, dtype=np.int64)
@@ -93,13 +94,11 @@ def reorder_corpus(source_root, dest_root, order, row_order_note: dict, layout: 
         shutil.copyfile(source_root / "extra" / f"{name}_features.parquet",
                         dest_root / "extra" / f"{name}_features.parquet")
 
-    # 2. Per-cell metadata in the new order; gene metadata unchanged. Size factors keep
-    #    their source values, also in a filtered rewrite.
-    pd.read_parquet(source_root / "obs.parquet").iloc[order].to_parquet(dest_root / "obs.parquet")
-    if manifest["expression_kind"] != "non_count":
-        statistics = pd.read_parquet(source_root / "statistics.parquet")
-        statistics.iloc[order].to_parquet(dest_root / "statistics.parquet", index=False)
-    shutil.copyfile(source_root / "var.parquet", dest_root / "var.parquet")
+    # 2. Per-cell metadata in the new order; gene metadata unchanged.
+    for obs_path in [source_root / "obs.parquet", *source_root.glob("ex_obs*.parquet")]:
+        pd.read_parquet(obs_path).iloc[order].to_parquet(dest_root / obs_path.name)
+    for var_path in [source_root / "var.parquet", *source_root.glob("ex_var*.parquet")]:
+        shutil.copyfile(var_path, dest_root / var_path.name)
 
     # 3. The manifest last, so an interrupted rewrite is not a loadable corpus.
     manifest["shape"] = [len(order), n_genes]

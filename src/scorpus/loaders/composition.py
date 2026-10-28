@@ -11,21 +11,46 @@ import polars as pl
 import yaml
 from scipy import sparse
 
-from .corpus_loader import Corpus
+from .corpus_loader import Corpus, _cupy_device_id, _lazy_sparse_meta, ex_path
 from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
 
 
-def _registry(named_ids: Mapping[str, list[str]]) -> FeatureRegistry:
-    # Canonical names here are internal coordinates, not required user columns.
-    return FeatureRegistry({
-        name: pl.DataFrame({"origin_index": np.arange(len(ids)), "canonical_gene_id": ids})
-        for name, ids in named_ids.items()
+def _hvg_ranks(var: pd.DataFrame) -> pl.DataFrame:
+    """Gene-index HVG ranks from scanpy's var columns ``highly_variable`` and ``highly_variable_rank``.
+
+    Only the ``highly_variable`` genes are ranked, 1..n in ``highly_variable_rank``
+    order (scanpy's rank is 0-based and, with ``batch_key``, a median across
+    batches, so ties keep gene order); all other genes get 0. The default HVG
+    count is n, so the gene index's HVG mask is exactly ``highly_variable``.
+    """
+    selected = np.flatnonzero(var["highly_variable"].to_numpy(dtype=bool))
+    rank = var["highly_variable_rank"].to_numpy(dtype=np.float64)
+    order = selected[np.argsort(rank[selected], kind="stable")]
+    return pl.DataFrame({
+        "origin_index": order,
+        "hvg_rank": np.arange(1, len(order) + 1),
+        "selected_at_default_n_hvg": np.ones(len(order), dtype=bool),
     })
 
 
-def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None) -> pl.DataFrame:
+def _registry(named_ids: Mapping[str, list[str]], var_frames: Mapping[str, pd.DataFrame]) -> FeatureRegistry:
+    # Canonical names here are internal coordinates, not required user columns.
+    return FeatureRegistry(
+        {
+            name: pl.DataFrame({"origin_index": np.arange(len(ids)), "canonical_gene_id": ids})
+            for name, ids in named_ids.items()
+        },
+        named_hvg_rank_dfs={name: _hvg_ranks(var) for name, var in var_frames.items() if "highly_variable" in var},
+    )
+
+
+# Routing fields that live only in MetadataIndex, never taken from user obs.
+ROUTING_COLUMNS = ("global_row_index", "dataset_index", "dataset_id", "local_row_index", "cell_id")
+
+
+def _metadata(obs: pd.DataFrame, name: str, index: int, start: int) -> pl.DataFrame:
     structural = {
         "global_row_index": np.arange(start, start + len(obs), dtype=np.int64),
         "dataset_index": np.full(len(obs), index, dtype=np.int32),
@@ -33,11 +58,9 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None
         "local_row_index": np.arange(len(obs), dtype=np.int64),
         "cell_id": obs.index.astype(str).to_numpy(),
     }
-    if factors is not None:
-        structural["size_factor"] = np.asarray(factors, dtype=np.float64)
     # User columns are kept untouched in Corpus.obs. Routing columns belong to
     # MetadataIndex, and take precedence only in that internal table.
-    user = pl.from_pandas(obs.drop(columns=list(structural), errors="ignore"), include_index=False)
+    user = pl.from_pandas(obs.drop(columns=list(ROUTING_COLUMNS), errors="ignore"), include_index=False)
     return pl.DataFrame(structural).hstack(user) if user.width else pl.DataFrame(structural)
 
 
@@ -45,22 +68,20 @@ def _metadata(obs: pd.DataFrame, name: str, index: int, start: int, factors=None
 STANDALONE_FORMATS = ("scorpus", "perturb-data-lab")
 
 
-def load_standalone(root: Path) -> Corpus:
+def load_standalone(root: Path, ex_obs: bool | str | None = None, ex_var: bool | str | None = None) -> Corpus:
     manifest = yaml.safe_load((root / "corpus.yaml").read_text())
     if (
         manifest["format"] not in STANDALONE_FORMATS
         or (manifest["version"], manifest["backend"]) != (1, "lance")
     ):
         raise ValueError("Unsupported standalone corpus format/version/backend")
-    obs = pd.read_parquet(root / "obs.parquet")
-    var = pd.read_parquet(root / "var.parquet")
+    # An ex file holds the full obs/var (original plus saved columns) and replaces it.
+    obs = pd.read_parquet(ex_path(root, "obs", ex_obs) if ex_obs else root / "obs.parquet")
+    var = pd.read_parquet(ex_path(root, "var", ex_var) if ex_var else root / "var.parquet")
     if [len(obs), len(var)] != manifest["shape"]:
         raise ValueError("Stored metadata disagrees with manifest shape")
     name = root.name
     kind = manifest["expression_kind"]
-    factors = None if kind == "non_count" else pd.read_parquet(root / "statistics.parquet")["size_factor"]
-    if factors is not None and len(factors) != len(obs):
-        raise ValueError("Statistics rows disagree with obs")
     ids = var.index.astype(str).tolist()
     if not var.index.is_unique:
         ids = [f"local:{i}" for i in range(len(var))]
@@ -70,8 +91,8 @@ def load_standalone(root: Path) -> Corpus:
     counts_dtype = manifest["dtype"] if layout == "packed" else None
     entry = LanceDatasetEntry(name, 0, len(obs), root / "expression.lance", layout, counts_dtype)
     return Corpus(
-        expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}),
-        metadata_index=MetadataIndex(_metadata(obs, name, 0, 0, factors)),
+        expression_reader=FederatedLanceReader([entry]), feature_registry=_registry({name: ids}, {name: var}),
+        metadata_index=MetadataIndex(_metadata(obs, name, 0, 0)),
         dataset_entries=[entry], dataset_index_by_id={name: 0}, topology="federated",
         backend="lance", corpus_root=root, obs_frames={name: obs}, var_frames={name: var},
         expression_kinds={name: kind}, features_aligned=var.index.is_unique,
@@ -86,12 +107,14 @@ class _ViewExpressionReader(SortedTakeReader):
 
     def __init__(self, entries, members):
         super().__init__(entries)
-        self.members = dict(members)
+        # Only the members' readers, not the member corpora (obs, var): the
+        # reader then pickles as table paths and row ranges, e.g. into DataLoader workers.
+        self.readers = {name: corpus.expression_reader for name, corpus in members.items()}
 
     def _take_rows(self, entry, rows):
         # Each member holds one table, so view-local rows are the member's
         # global rows. Its blocks join this batch directly, copied only once.
-        reader = self.members[entry.dataset_id].expression_reader
+        reader = self.readers[entry.dataset_id]
         return reader._take_rows(reader._entries[0], rows)
 
 
@@ -124,9 +147,8 @@ def concat(
     entries, frames, metadata_frames, named_ids = [], [], [], {}
     obs_frames, var_frames, kinds = {}, {}, {}
     start = 0
-    reserved = {"dataset_id", "dataset_index", "global_row_index", "local_row_index", "cell_id", "size_factor"}
-    if reserved.intersection(obs_columns or {}):
-        raise ValueError("Collective column names conflict with internal routing/statistics fields")
+    if set(ROUTING_COLUMNS).intersection(obs_columns or {}):
+        raise ValueError("Collective column names conflict with internal routing fields")
     for index, (name, corpus) in enumerate(corpora.items()):
         if len(corpus.dataset_ids) != 1:
             raise ValueError("concat inputs must each contain one dataset")
@@ -140,8 +162,7 @@ def concat(
             if set(mapping) != set(corpora):
                 raise ValueError(f"{column}: mapping must cover exactly the corpus members")
             selected[column] = source_obs[mapping[name]]
-        factors = corpus.metadata_index.df.get_column("size_factor").to_numpy() if "size_factor" in corpus.metadata_index.df.columns else np.full(len(source_obs), np.nan)
-        metadata_frames.append(_metadata(selected, name, index, start, factors))
+        metadata_frames.append(_metadata(selected, name, index, start))
         selected.index = pd.MultiIndex.from_arrays(
             [[name] * len(selected), np.arange(len(selected))], names=["member", "row"],
         )
@@ -164,7 +185,7 @@ def concat(
         kinds[name] = corpus.expression_kinds.get(corpus.dataset_ids[0], "counts")
     # Strict vertical concatenation catches incompatible collective column types.
     metadata = MetadataIndex(pl.concat(metadata_frames, how="vertical"))
-    registry = _registry(named_ids)
+    registry = _registry(named_ids, var_frames)
     collective_var = pd.DataFrame(index=pd.Index(registry.global_feature_ids, name="feature_id"))
     for column, mapping in (var_columns or {}).items():
         if set(mapping) != set(corpora):
@@ -188,24 +209,41 @@ def concat(
     )
 
 
-def _read_aligned(reader, indices, local_to_output, width):
+def _read_aligned(reader, indices, local_to_output, width, dtype=None, device="cpu"):
     batch = reader.read_expression_flat(list(indices))
     columns = local_to_output[batch.expressed_gene_indices]
-    keep = columns >= 0
-    # Prefix sums work for consecutive empty rows and a trailing empty row.
-    prefix = np.concatenate(([0], np.cumsum(keep, dtype=np.int64)))
-    offsets = prefix[batch.row_offsets]
-    return sparse.csr_matrix(
-        (batch.expression_counts[keep], columns[keep], offsets),
-        shape=(len(indices), width),
-    )
+    offsets = batch.row_offsets
+    if columns.min(initial=0) < 0:
+        # Drop genes outside the output axis (inner join). Prefix sums work
+        # for consecutive empty rows and a trailing empty row.
+        keep = columns >= 0
+        prefix = np.concatenate(([0], np.cumsum(keep, dtype=np.int64)))
+        offsets = prefix[offsets]
+        # Boolean indexing already copies, so these chunks are writable.
+        counts, columns = batch.expression_counts[keep], columns[keep]
+    else:
+        # The reader may return read-only views of Lance's buffers; copy so
+        # each chunk is writable (e.g. for in-place log1p).
+        counts = np.array(batch.expression_counts, dtype=dtype)
+    matrix = sparse.csr_matrix((counts, columns, offsets), shape=(len(indices), width), dtype=dtype)
+    if device == "cpu":
+        return matrix
+    import cupy as cp
+    from cupyx.scipy import sparse as cupyx_sparse
+
+    with cp.cuda.Device(_cupy_device_id(device)):
+        return cupyx_sparse.csr_matrix(matrix)
 
 
 def view_to_anndata(
     corpus: Corpus, *, dataset_id=None, global_row_indices=None,
-    obs_columns=None, var_join="exact", lazy=False, chunk_rows=4096,
+    obs_columns=None, var_join="exact", lazy=False, chunk_rows=65_536, device="cpu",
 ):
-    """AnnData handoff sharing the same sparse reader and feature coordinates."""
+    """AnnData handoff sharing the same sparse reader and feature coordinates.
+
+    ``device`` ('cpu', 'cuda' or 'cuda:<index>') applies to the lazy export: on a
+    GPU each Dask chunk is a CuPy CSR matrix.
+    """
     import anndata as ad
     import dask.array as da
     from dask import delayed
@@ -246,7 +284,8 @@ def view_to_anndata(
         var = corpus.var.iloc[axis].copy()
     if not len(axis):
         raise ValueError("The selected feature axis is empty")
-    global_to_output = np.full(registry.global_vocab_size, -1, dtype=np.int64)
+    # int32: the CSR uses these as its column indices without a conversion copy.
+    global_to_output = np.full(registry.global_vocab_size, -1, dtype=np.int32)
     global_to_output[axis] = np.arange(len(axis))
     blocks, obs_parts = [], []
     for name, local_to_global in zip(selected, maps):
@@ -262,19 +301,26 @@ def view_to_anndata(
             frame = frame[list(obs_columns)]
         obs_parts.append(frame)
         mapping = global_to_output[local_to_global]
-        dtype = corpus.expression_reader.read_expression_flat([int(indices[0])]).expression_counts.dtype if lazy else None
+        if lazy:
+            # Dtype is obtained from a bounded read, never a full dataset.
+            dtype = corpus.expression_reader.read_expression_flat([int(indices[0])]).expression_counts.dtype
+            if device != "cpu" and dtype.kind in "iu":
+                # CuPy sparse has no integer dtype.
+                dtype = np.dtype(np.float32)
+            meta = _lazy_sparse_meta(device, dtype)
         for start in range(0, len(indices), chunk_rows):
             selected_rows = indices[start:start + chunk_rows]
             args = (corpus.expression_reader, selected_rows, mapping, len(axis))
             if lazy:
-                # Dtype is obtained from a bounded read, never a full dataset.
                 blocks.append(da.from_delayed(
-                    delayed(_read_aligned)(*args), shape=(len(selected_rows), len(axis)),
-                    dtype=dtype, meta=sparse.csr_matrix((0, 0), dtype=dtype),
+                    delayed(_read_aligned)(*args, dtype, device), shape=(len(selected_rows), len(axis)),
+                    dtype=dtype, meta=meta,
                 ))
             else:
                 blocks.append(_read_aligned(*args))
     expression = da.concatenate(blocks, axis=0) if lazy else sparse.vstack(blocks, format="csr")
+    if len(selected) == 1 and "highly_variable" in var:
+        var["hvg_rank"] = registry.hvg_rank_matrix[ds_indices[0], axis]
     result = ad.AnnData(X=expression, obs=pd.concat(obs_parts), var=var)
     # AnnData sparse matrices encode absence as zero; retain the distinction.
     result.varm["feature_presence"] = registry.dataset_has_gene[ds_indices][:, axis].T.copy()

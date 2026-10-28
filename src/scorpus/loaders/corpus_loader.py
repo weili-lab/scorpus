@@ -207,29 +207,28 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         obs_columns: Sequence[str] | None = None,
-        chunk_rows: int = 4096,
+        chunk_rows: int = 65_536,
         device: str = "cpu",
         var_join: Literal["inner", "exact", "outer"] = "exact",
     ):
         """Export whole selected dataset(s) as AnnData with Dask-backed ``X``.
 
         Only ``X`` is lazy. Observation and feature metadata are loaded in
-        memory because they are small compared with the count matrix.
+        memory because they are small compared with the count matrix. With
+        ``device="cuda"`` each chunk is a CuPy CSR matrix.
         """
         import anndata as ad
 
+        lazy_device = _normalize_lazy_device(device)
         if self.obs_frames:
             from .composition import view_to_anndata
 
-            if device != "cpu":
-                raise ValueError("Metadata-view AnnData currently supports device='cpu'")
             return view_to_anndata(
                 self, dataset_id=dataset_id, obs_columns=obs_columns,
-                var_join=var_join, lazy=True, chunk_rows=chunk_rows,
+                var_join=var_join, lazy=True, chunk_rows=chunk_rows, device=lazy_device,
             )
         if int(chunk_rows) <= 0:
             raise ValueError("chunk_rows must be positive")
-        lazy_device = _normalize_lazy_device(device)
         if dataset_id is None:
             dataset_id = self.dataset_ids
         selected = _normalize_dataset_selection(dataset_id)
@@ -251,7 +250,7 @@ class Corpus:
         *,
         dataset_id: str | Sequence[str] | None = None,
         var_join: Literal["inner", "exact", "outer"] = "exact",
-        chunk_rows: int = 4096,
+        chunk_rows: int = 65_536,
     ) -> None:
         """Write a new h5ad through AnnData's chunked Dask writer.
 
@@ -265,28 +264,44 @@ class Corpus:
             dataset_id=dataset_id, var_join=var_join, chunk_rows=chunk_rows,
         ).write_h5ad(path)
 
-    def add_obs_meta(
-        self,
-        frame: Any,
-        *,
-        on: Sequence[str],
-    ) -> None:
-        """Join additional observation metadata into this loaded corpus.
+    def add_obs_meta(self, meta: Any, *, overwrite: bool = False) -> None:
+        """Append per-cell columns to this loaded standalone corpus.
 
-        This is runtime-only. The incoming frame must cover every corpus row
-        exactly once using explicit join keys.
+        ``meta`` is a pandas DataFrame or a parquet path whose index holds the
+        cell ids in exactly the corpus's cell order (repeated ids are fine). A
+        column that already exists is an error unless ``overwrite=True``. Only
+        the loaded corpus changes; ``save_ex_obs`` saves it.
         """
-        previous_columns = set(self.metadata_index.df.columns)
-        self.metadata_index.df = _join_obs_metadata(
-            self.metadata_index.df,
-            frame,
-            on=on,
-        ).sort("global_row_index")
-        if self.obs_frames:
-            self.obs_view = self.obs.copy()
-            for column in self.metadata_index.df.columns:
-                if column not in previous_columns:
-                    self.obs_view[column] = self.metadata_index.df[column].to_numpy()
+        import pandas as pd
+
+        from .composition import ROUTING_COLUMNS, _metadata
+
+        _require_standalone(self)
+        if not isinstance(meta, pd.DataFrame):
+            meta = pd.read_parquet(meta)
+        obs = self.obs
+        if not meta.index.equals(obs.index):
+            raise ValueError(
+                f"meta ({len(meta)} rows) must have the corpus cell ids ({len(obs)} rows) as its index, in corpus order"
+            )
+        # The metadata index keeps its own routing fields, so these would change obs only.
+        routing = meta.columns.intersection(ROUTING_COLUMNS).tolist()
+        if routing:
+            raise ValueError(f"Routing column names cannot be added: {routing}")
+        clash = obs.columns.intersection(meta.columns).tolist()
+        if clash and not overwrite:
+            raise ValueError(f"Columns already in the corpus obs: {clash}; pass overwrite=True to replace them")
+        for column in meta.columns:
+            obs[column] = meta[column].to_numpy()
+        self.metadata_index = MetadataIndex(_metadata(obs, self.dataset_ids[0], 0, 0))
+
+    def save_ex_obs(self, name: str | None = None) -> Path:
+        """Write this corpus's full obs to ``ex_obs.parquet`` (or ``ex_obs_<name>.parquet``)."""
+        return _save_ex(self, "obs", name)
+
+    def save_ex_var(self, name: str | None = None) -> Path:
+        """Write this corpus's full var to ``ex_var.parquet`` (or ``ex_var_<name>.parquet``)."""
+        return _save_ex(self, "var", name)
 
     def read_extra(self, name: str, rows: Sequence[int]):
         """Rows of an extra matrix saved at conversion (e.g. ``"guide_umi"``).
@@ -307,6 +322,30 @@ class Corpus:
             shape=(batch.batch_size, len(features)),
         )
         return matrix, features
+
+
+def ex_path(root: Path, kind: str, name: bool | str | None) -> Path:
+    """``ex_obs.parquet`` / ``ex_var.parquet``, or ``ex_<kind>_<name>.parquet`` for a string name."""
+    return root / (f"ex_{kind}_{name}.parquet" if isinstance(name, str) else f"ex_{kind}.parquet")
+
+
+def _require_standalone(corpus: Corpus) -> None:
+    if corpus.members or not corpus.obs_frames:
+        raise ValueError("This works on one loaded standalone corpus; for a concat, use each member corpus")
+
+
+def _save_ex(corpus: Corpus, kind: str, name: str | None) -> Path:
+    import pandas as pd
+
+    _require_standalone(corpus)
+    frame = corpus.obs if kind == "obs" else corpus.var
+    # The corpus's own obs/var file fixes the row order (cells or genes) every ex file keeps.
+    stored = pd.read_parquet(corpus.corpus_root / f"{kind}.parquet", columns=[]).index
+    if not frame.index.equals(stored):
+        raise ValueError(f"The {kind} rows ({len(frame)}) differ from the corpus's {len(stored)} rows or their order")
+    path = ex_path(corpus.corpus_root, kind, name)
+    frame.to_parquet(path)
+    return path
 
 # ---------------------------------------------------------------------------
 # Backend name normalisation
@@ -792,11 +831,11 @@ def _cupy_device_id(device: str) -> int:
     return int(device.split(":", 1)[1])
 
 
-def _lazy_sparse_meta(device: str):
+def _lazy_sparse_meta(device: str, dtype=np.float32):
     if device == "cpu":
         from scipy import sparse
 
-        return sparse.csr_matrix((0, 0), dtype=np.float32)
+        return sparse.csr_matrix((0, 0), dtype=dtype)
 
     try:
         import cupy as cp
@@ -806,7 +845,7 @@ def _lazy_sparse_meta(device: str):
 
     try:
         with cp.cuda.Device(_cupy_device_id(device)):
-            return cupyx_sparse.csr_matrix((0, 0), dtype=cp.float32)
+            return cupyx_sparse.csr_matrix((0, 0), dtype=dtype)
     except Exception as exc:
         raise RuntimeError("device='cuda' requires a working CUDA/CuPy runtime") from exc
 
@@ -865,84 +904,6 @@ def _build_lazy_expression_matrix(
     return da.concatenate(blocks, axis=0)
 
 
-def _frame_to_polars(frame: Any) -> pl.DataFrame:
-    if isinstance(frame, pl.DataFrame):
-        return frame
-    try:
-        import pandas as pd
-
-        if isinstance(frame, pd.DataFrame):
-            return pl.from_pandas(frame)
-    except ImportError:
-        pass
-    return pl.DataFrame(frame)
-
-
-def _normalize_join_keys(on: Sequence[str]) -> tuple[str, ...]:
-    if isinstance(on, (str, bytes)):
-        raise TypeError("on must be a sequence of join-key column names")
-    keys = tuple(str(column) for column in on)
-    if not keys:
-        raise ValueError("on must contain at least one join key")
-    if len(set(keys)) != len(keys):
-        raise ValueError("on join keys must be unique")
-    if any(not key for key in keys):
-        raise ValueError("on join keys must be non-empty strings")
-    return keys
-
-
-def _has_duplicate_keys(df: pl.DataFrame, keys: Sequence[str]) -> bool:
-    return bool(df.select(list(keys)).is_duplicated().any())
-
-
-def _check_join_key_columns(df: pl.DataFrame, keys: Sequence[str], *, context: str) -> None:
-    missing = [key for key in keys if key not in df.columns]
-    if missing:
-        raise ValueError(f"{context} missing join key column(s): {missing}")
-    null_keys = [key for key in keys if int(df[key].null_count()) > 0]
-    if null_keys:
-        raise ValueError(f"{context} has null values in join key column(s): {null_keys}")
-
-
-def _join_obs_metadata(
-    corpus_df: pl.DataFrame,
-    frame: Any,
-    *,
-    on: Sequence[str],
-) -> pl.DataFrame:
-    keys = _normalize_join_keys(on)
-    incoming = _frame_to_polars(frame)
-    _check_join_key_columns(corpus_df, keys, context="corpus metadata")
-    _check_join_key_columns(incoming, keys, context="incoming metadata")
-
-    value_columns = [column for column in incoming.columns if column not in keys]
-    if not value_columns:
-        raise ValueError("incoming metadata must contain at least one non-key column")
-    collisions = [column for column in value_columns if column in corpus_df.columns]
-    if collisions:
-        raise ValueError(f"incoming metadata column(s) already exist in corpus: {collisions}")
-
-    if _has_duplicate_keys(corpus_df, keys):
-        raise ValueError("corpus metadata join keys are not unique")
-    if _has_duplicate_keys(incoming, keys):
-        raise ValueError("incoming metadata join keys are not unique")
-
-    corpus_keys = corpus_df.select(list(keys))
-    incoming_keys = incoming.select(list(keys))
-    missing_rows = corpus_keys.join(incoming_keys, on=list(keys), how="anti")
-    if missing_rows.height:
-        raise ValueError("incoming metadata does not cover every corpus row")
-    extra_rows = incoming_keys.join(corpus_keys, on=list(keys), how="anti")
-    if extra_rows.height:
-        raise ValueError("incoming metadata contains rows not present in corpus")
-
-    return corpus_df.join(
-        incoming.select(list(keys) + value_columns),
-        on=list(keys),
-        how="left",
-    )
-
-
 # ---------------------------------------------------------------------------
 # load_corpus factory
 # ---------------------------------------------------------------------------
@@ -953,6 +914,8 @@ def load_corpus(
     *,
     extra_metadata_columns: Sequence[str] | None = None,
     zarr_read_engine: str = "zarr-python",
+    ex_obs: bool | str | None = None,
+    ex_var: bool | str | None = None,
 ) -> Corpus:
     """Load a training-ready ``Corpus`` from a corpus directory.
 
@@ -967,6 +930,10 @@ def load_corpus(
     extra_metadata_columns : sequence of str, optional
         Additional canonical-obs parquet columns to load into
         ``metadata_index`` beyond the default canonical/core projection.
+    ex_obs, ex_var : True or str, optional
+        Standalone corpora only: load ``ex_obs.parquet`` / ``ex_var.parquet``
+        (``True``) or ``ex_obs_<name>.parquet`` / ``ex_var_<name>.parquet``
+        (a name) instead of ``obs.parquet`` / ``var.parquet``.
 
     Returns
     -------
@@ -986,7 +953,9 @@ def load_corpus(
     if (root / "corpus.yaml").exists():
         from .composition import load_standalone
 
-        return load_standalone(root)
+        return load_standalone(root, ex_obs, ex_var)
+    if ex_obs or ex_var:
+        raise ValueError("ex_obs / ex_var apply to standalone corpora only")
     index_path = root / "corpus-index.yaml"
     if not index_path.exists():
         raise FileNotFoundError(

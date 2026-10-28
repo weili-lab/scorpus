@@ -450,30 +450,6 @@ def test_optional_zarr_read_engines_match_sharded_csr_smoke(tmp_path: Path, engi
     np.testing.assert_array_equal(observed_x, expected_x)
 
 
-def test_add_obs_meta_requires_full_corpus_coverage(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-    incoming = corpus.metadata_index.df.select(["dataset_id", "cell_id"]).with_columns(
-        pl.Series("leiden", [f"cluster_{idx % 2}" for idx in range(len(corpus.metadata_index))])
-    )
-
-    corpus.add_obs_meta(incoming, on=["dataset_id", "cell_id"])
-
-    assert "leiden" in corpus.metadata_index.df.columns
-    assert corpus.take_metadata([0], columns=["leiden"])["leiden"] == ("cluster_0",)
-
-
-def test_add_obs_meta_rejects_subset_metadata(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    corpus = load_corpus(tmp_path)
-    incoming = corpus.metadata_index.df.filter(pl.col("dataset_id") == "mock_00").select(
-        ["dataset_id", "cell_id"]
-    ).with_columns(pl.lit("cluster_0").alias("leiden"))
-
-    with pytest.raises(ValueError, match="cover every corpus row"):
-        corpus.add_obs_meta(incoming, on=["dataset_id", "cell_id"])
-
-
 def test_expression_reader_and_take_metadata_use_global_rows(tmp_path: Path) -> None:
     _build_aggregate_lance_corpus(tmp_path)
     corpus = load_corpus(tmp_path)
