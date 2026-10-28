@@ -92,8 +92,9 @@ log-transformed layers.
 columns are present in the loaded metadata. Requested `obs_columns` are added
 alongside them.
 
-For single-dataset and selected-index exports, `adata.var` contains the canonical
-var metadata plus `hvg_rank` and `highly_variable` from the corpus HVG ranking.
+For single-dataset and selected-index exports, `adata.var` contains the dataset's
+var: for a standalone corpus its loaded var (with `highly_variable`, if present);
+for an aggregate corpus its canonical var.
 For multi-dataset exports, `adata.var` comes from the first selected dataset after
 the shared feature-axis check.
 
@@ -191,8 +192,7 @@ sc.pp.highly_variable_genes(adata, flavor="seurat_v3", n_top_genes=2000, batch_k
 
 corpus.add_obs_meta(adata.obs[["leiden", "doublet_score"]])  # export keeps the corpus cell ids
 corpus.save_ex_obs()                     # ex_obs.parquet (created or overwritten)
-for column in ["highly_variable", "highly_variable_rank"]:
-    corpus.var[column] = adata.var[column].to_numpy()
+corpus.var["highly_variable"] = adata.var["highly_variable"].to_numpy()
 corpus.save_ex_var("hvg2000")            # ex_var_hvg2000.parquet
 
 corpus = load_corpus("my.corpus", ex_obs=True, ex_var="hvg2000")
@@ -220,20 +220,13 @@ corpus = load_corpus("my.corpus", ex_obs=True, ex_var="hvg2000")
 
 ### HVGs from `ex_var`
 
-When the loaded var has a `highly_variable` column, the loader fills the gene
-index's HVG ranks from it, so `feature_registry.hvg_mask` /
-`hvg_rank_matrix` (used, for example, by pertTF's `"hvg"` gene sampling) and the
-AnnData `var["hvg_rank"]` follow it:
-
-- `highly_variable_rank` is required as well. It is scanpy's `seurat_v3` /
-  `seurat_v3_paper` column (0-based, NaN outside the top genes, a median across
-  batches with `batch_key`). The `seurat` and `cell_ranger` flavors write no rank;
-  add one before saving, for example
-  `var["highly_variable_rank"] = var["dispersions_norm"].rank(ascending=False, method="first") - 1`.
-- Only the `highly_variable` genes are ranked, 1..n in `highly_variable_rank` order
-  (ties in gene order); all other genes get 0, so `hvg_mask` is exactly
-  `highly_variable` and a top-k above n gives all n HVGs (for more, compute HVGs
-  with a larger `n_top_genes`).
+When the loaded var has a `highly_variable` column, the gene index's HVGs are
+exactly its `True` genes: `feature_registry.hvg_mask` (used, for example, by
+pertTF's `"hvg"` gene sampling) follows it. Any method works, since only this
+column is read (no rank): set `corpus.var["highly_variable"]` to the genes you
+want, from any scanpy flavor, another tool or a hand-made list, and save it with
+`save_ex_var`. Several HVG sets can live side by side as named ex_var files, chosen
+at load time.
 
 After adding metadata, the new columns can define groups for sampling, for example
 batches that each hold cells of one cluster and perturbation:

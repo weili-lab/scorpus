@@ -115,34 +115,26 @@ def test_reorder_carries_every_ex_file(tmp_path):
 
 def test_hvg_columns_in_ex_var_fill_the_gene_index(tmp_path):
     corpus = convert(tmp_path)
-    # scanpy's convention: 0-based median rank, NaN outside the top genes.
+    # Any HVG choice: only highly_variable is read; a rank column, if present, is ignored.
     corpus.var["highly_variable"] = [True, False, True, False, False, True]
-    corpus.var["highly_variable_rank"] = [1.0, np.nan, 0.0, 3.0, np.nan, 1.0]
     corpus.save_ex_var("hvg")
-    # Only HVGs are ranked, by rank (tie g1/g6 kept in gene order); g4 has a rank but is not an HVG.
-    expected_rank = np.array([2, 0, 1, 0, 0, 3])
+    corpus.var["highly_variable_rank"] = [5.0, np.nan, 0.0, 3.0, np.nan, 1.0]
+    corpus.save_ex_var("hvg_with_rank")
     expected_mask = np.array([True, False, True, False, False, True])
 
-    loaded = load_corpus(tmp_path / "corpus", ex_var="hvg")
-    registry = loaded.feature_registry
-    local_to_global = registry.local_to_global_map[0, :6]
-    np.testing.assert_array_equal(registry.hvg_rank_matrix[0, local_to_global], expected_rank)
-    np.testing.assert_array_equal(registry.hvg_mask[0, local_to_global], expected_mask)
-    var = loaded.to_anndata().var
-    np.testing.assert_array_equal(var["hvg_rank"], expected_rank)
-    np.testing.assert_array_equal(var["highly_variable"], expected_mask)
-    assert "hvg_rank" not in load_corpus(tmp_path / "corpus").to_anndata().var
+    for name in ["hvg", "hvg_with_rank"]:
+        loaded = load_corpus(tmp_path / "corpus", ex_var=name)
+        registry = loaded.feature_registry
+        local_to_global = registry.local_to_global_map[0, :6]
+        np.testing.assert_array_equal(registry.hvg_mask[0, local_to_global], expected_mask)
+        var = loaded.to_anndata().var
+        np.testing.assert_array_equal(var["highly_variable"], expected_mask)
+        assert "hvg_rank" not in var
     assert not load_corpus(tmp_path / "corpus").feature_registry.hvg_mask.any()
 
     # In a concat, each member keeps its own HVGs.
     convert(tmp_path, "other")
     view = concat({"other": load_corpus(tmp_path / "other"), "hvg": loaded})
     view_map = view.feature_registry.local_to_global_map
-    np.testing.assert_array_equal(view.feature_registry.hvg_rank_matrix[1, view_map[1, :6]], expected_rank)
+    np.testing.assert_array_equal(view.feature_registry.hvg_mask[1, view_map[1, :6]], expected_mask)
     assert not view.feature_registry.hvg_mask[0].any()
-
-    # Membership alone (scanpy's seurat / cell_ranger flavors) gives no rank order.
-    corpus.var.drop(columns="highly_variable_rank", inplace=True)
-    corpus.save_ex_var("no_rank")
-    with pytest.raises(KeyError, match="highly_variable_rank"):
-        load_corpus(tmp_path / "corpus", ex_var="no_rank")

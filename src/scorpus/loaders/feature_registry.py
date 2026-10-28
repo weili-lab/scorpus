@@ -38,16 +38,7 @@ class FeatureRegistry:
             )
             for dataset_id in order
         }
-        named_hvg_rank_dfs = {
-            dataset_id: pl.read_parquet(str(hvg_path))
-            for dataset_id in order
-            if (hvg_path := cls._discover_hvg_path(Path(named_var_paths[dataset_id]))) is not None
-        }
-        return cls(
-            named_var_dfs,
-            dataset_order=order,
-            named_hvg_rank_dfs=named_hvg_rank_dfs or None,
-        )
+        return cls(named_var_dfs, dataset_order=order)
 
     @staticmethod
     def _sorted_var_df(var_df: pl.DataFrame, ds_id: str) -> pl.DataFrame:
@@ -62,12 +53,6 @@ class FeatureRegistry:
                 f"canonical var parquet for dataset '{ds_id}' has non-numeric origin_index"
             ) from exc
         return normalized.sort("origin_index")
-
-    @staticmethod
-    def _discover_hvg_path(var_path: Path) -> Path | None:
-        meta_root = var_path.parent.parent if var_path.parent.name == "canonical_meta" else var_path.parent
-        hvg_path = meta_root / "hvg.parquet"
-        return hvg_path if hvg_path.exists() else None
 
     @staticmethod
     def _build_global_id_by_feature_id(
@@ -162,13 +147,13 @@ class FeatureRegistry:
     ) -> tuple[np.ndarray, int | None]:
         missing = {"origin_index", "hvg_rank"} - set(hvg_df.columns)
         if missing:
-            raise ValueError(f"hvg.parquet for dataset '{ds_id}' missing columns: {sorted(missing)}")
+            raise ValueError(f"HVG table for dataset '{ds_id}' missing columns: {sorted(missing)}")
         origin_index = np.asarray(hvg_df["origin_index"].to_numpy(), dtype=np.int64)
         hvg_rank = np.asarray(hvg_df["hvg_rank"].to_numpy(), dtype=np.int32)
         local_hvg_rank = np.zeros(n_vars, dtype=np.int32)
         valid = (origin_index >= 0) & (origin_index < n_vars) & (hvg_rank > 0)
         if not np.all(valid):
-            raise ValueError(f"hvg.parquet for dataset '{ds_id}' contains invalid origin_index or hvg_rank rows")
+            raise ValueError(f"HVG table for dataset '{ds_id}' contains invalid origin_index or hvg_rank rows")
         local_hvg_rank[origin_index] = hvg_rank
         inferred_default_n_hvg = None
         if "selected_at_default_n_hvg" in hvg_df.columns:
