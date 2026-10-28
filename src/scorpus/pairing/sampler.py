@@ -132,7 +132,7 @@ class Sampler:
         bundles = self._draw_bundles(rng, n_bundles)
         if self.single_cells:
             # Single cells on both sides: pick every source and target cell with one array operation each.
-            s, t = self.pair_source[bundles], self.pair_target[bundles]
+            s = self.pair_source[bundles]
             source_rows = self._flat[self._start[s] + rng.integers(self._count[s])]
             target_rows = self._partners(source_rows, bundles, "source", rng)
             return [[([int(i)], [int(j)])] if j >= 0 else [] for i, j in zip(source_rows, target_rows)]

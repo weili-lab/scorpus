@@ -13,19 +13,18 @@ import logging
 import string
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from ..contracts import CONTRACT_VERSION, MISSING_VALUE_LITERAL
 from .contract import (
-    CANONICAL_OBS_MUST_HAVE,
-    CANONICAL_VAR_MUST_HAVE,
+    CanonicalObsSchema,
+    CanonicalVarSchema,
     CanonicalVocab,
     CanonicalizationSchema,
     ConditionalCase,
-    ExtensibleColumn,
     ObsColumnMapping,
     VarColumnMapping,
 )
@@ -842,13 +841,11 @@ class CanonicalizationRunner:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _default_obs_schema() -> "CanonicalObsSchema":
-        from .contract import CanonicalObsSchema
+    def _default_obs_schema() -> CanonicalObsSchema:
         return CanonicalObsSchema()
 
     @staticmethod
-    def _default_var_schema() -> "CanonicalVarSchema":
-        from .contract import CanonicalVarSchema
+    def _default_var_schema() -> CanonicalVarSchema:
         return CanonicalVarSchema()
 
 

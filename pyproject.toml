@@ -41,3 +41,7 @@ Repository = "https://github.com/weili-lab/scorpus"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff.lint]
+# Errors and likely bugs only (pyflakes plus syntax/statement errors); no style rules.
+select = ["E4", "E7", "E9", "F"]

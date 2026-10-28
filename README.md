@@ -13,6 +13,9 @@ ready to hand back to AnnData.**
 [Quickstart](https://scorpus.readthedocs.io/en/latest/quickstart.html) ·
 [Conversion &amp; composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html)
 
+[![tests](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml)
+[![ruff](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml)
+
 </div>
 
 ---

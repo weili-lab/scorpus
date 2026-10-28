@@ -22,7 +22,6 @@ from pathlib import Path
 import anndata as ad
 import numpy as np
 import pandas as pd
-import pytest
 from scipy.sparse import csr_matrix
 
 from scorpus.inspectors.models import CountSourceDecision
@@ -32,7 +31,6 @@ from scorpus.inspectors.workflow import (
     _choose_count_source,
     _rank_candidates,
     inspect_target,
-    InspectionBatchConfig,
     InspectionTarget,
 )
 
@@ -149,14 +147,6 @@ def test_choose_count_source_binned_only_source_recovers_when_values_recover():
     binned_like = np.log1p(raw_counts).astype(np.float32)
     adata = ad.AnnData(X=np.zeros((3, 3), dtype=np.float32), obs=obs, var=var)
     adata.layers["X_binned"] = binned_like
-
-    candidate = _audit_matrix_candidate(
-        ".layers[X_binned]",
-        adata.layers["X_binned"],
-        row_count=3,
-        column_count=3,
-        sample_rows=3,
-    )
 
     ranked = _rank_candidates([
         _audit_matrix_candidate(".layers[X_binned]", adata.layers["X_binned"], 3, 3, 3)
