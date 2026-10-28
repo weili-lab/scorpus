@@ -9,7 +9,6 @@ this package will be removed in a future release.
 
 from __future__ import annotations
 
-import importlib
 import sys
 import warnings
 

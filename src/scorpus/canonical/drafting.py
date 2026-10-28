@@ -834,8 +834,8 @@ def _draft_obs_mapping(
             )
         # If cell_id not found in obs_columns, flag it
         notes.append(
-            f"[uncertain] 'cell_id' not found in raw obs columns; "
-            f"using passthrough with fallback."
+            "[uncertain] 'cell_id' not found in raw obs columns; "
+            "using passthrough with fallback."
         )
         return ObsColumnMapping(
             canonical_name=canonical_name,
@@ -854,8 +854,8 @@ def _draft_obs_mapping(
                 fallback=_NULL_FALLBACKS.get(canonical_name, MISSING_VALUE_LITERAL),
             )
         notes.append(
-            f"[uncertain] 'dataset_id' not found in raw obs columns; "
-            f"will fall back to schema dataset_id."
+            "[uncertain] 'dataset_id' not found in raw obs columns; "
+            "will fall back to schema dataset_id."
         )
         return ObsColumnMapping(
             canonical_name=canonical_name,

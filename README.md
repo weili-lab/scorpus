@@ -13,12 +13,22 @@ ready to hand back to AnnData.**
 [Quickstart](https://scorpus.readthedocs.io/en/latest/quickstart.html) ·
 [Conversion &amp; composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html)
 
+[![tests](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/tests.yml)
+[![ruff](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml/badge.svg)](https://github.com/weili-lab/scorpus/actions/workflows/ruff.yml)
+[![docs](https://readthedocs.org/projects/scorpus/badge/?version=latest)](https://scorpus.readthedocs.io/en/latest/)
+[![release](https://img.shields.io/github/v/release/weili-lab/scorpus)](https://github.com/weili-lab/scorpus/releases)
+[![python](https://img.shields.io/badge/python-%E2%89%A53.11-blue)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 </div>
 
 ---
 
 `scorpus` turns single-cell `.h5ad` files into sparse on-disk corpora that are
 cheap to random-access, easy to compose, and ready to hand back to AnnData.
+Counts are stored as [Lance](https://github.com/lancedb/lance) tables, one row
+per cell, so any set of cells can be read straight off disk without loading the
+rest.
 
 It is built for three jobs:
 
@@ -29,8 +39,27 @@ It is built for three jobs:
 ## Install
 
 ```bash
-pip install -e .           # conversion, composition, reading, pairing, AnnData export
+pip install "scorpus @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
 ```
+
+The base install covers conversion, composition, reading, training batches,
+pairing and in-memory AnnData export. Optional extras add the rest:
+
+| Extra | Adds | For |
+|---|---|---|
+| `scorpus[lazy]` | dask | `to_anndata_lazy()` and `write_h5ad()`: AnnData whose counts stay on disk |
+| `scorpus[scanpy]` | dask, scanpy | Scanpy on the lazy export (CPU) |
+| `scorpus[gpu]` | dask, cupy, rapids-singlecell | rapids-singlecell on a lazy export whose chunks live on the GPU (CUDA 12) |
+| `scorpus[all]` | all of the above | |
+
+```bash
+pip install "scorpus[scanpy] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0"
+# RAPIDS wheels come from NVIDIA's package index:
+pip install "scorpus[gpu] @ git+https://github.com/weili-lab/scorpus.git@v0.5.0" \
+    --extra-index-url https://pypi.nvidia.com
+```
+
+From a clone, use `pip install -e ".[scanpy]"` and so on.
 
 ## Convert
 
@@ -94,7 +123,7 @@ outer join are never mistaken for measured zeros.
 ## Hand back to AnnData
 
 ```python
-adata = corpus.to_anndata_lazy(chunk_rows=4096)   # Dask X, stays on disk
+adata = corpus.to_anndata_lazy()                  # Dask X in 8,192-cell chunks, stays on disk
 small = corpus.to_anndata(global_row_indices=[2, 0, 5])   # eager, selected rows
 corpus.write_h5ad("export.h5ad")                  # new file, reopen backed="r"
 ```
@@ -139,7 +168,7 @@ The full documentation, including installation, tutorials and guides, is at
 - [Conversion and composition](https://scorpus.readthedocs.io/en/latest/composable_corpora.html): start here
 - [Pairing source and target cells](https://scorpus.readthedocs.io/en/latest/pairing.html) and the [pairing walkthrough](https://scorpus.readthedocs.io/en/latest/tutorials/pairing_walkthrough.html)
 - [AnnData / Scanpy / RAPIDS handoff](https://scorpus.readthedocs.io/en/latest/anndata_scanpy_handoff.html)
-- [Architecture](https://scorpus.readthedocs.io/en/latest/design.html) and [backend policy](https://scorpus.readthedocs.io/en/latest/backend_note.html)
+- [Architecture](https://scorpus.readthedocs.io/en/latest/design.html) and [storage backend (Lance)](https://scorpus.readthedocs.io/en/latest/backend_note.html)
 
 The site is built from `docs/` (Sphinx, see `.readthedocs.yaml`); edit the pages
 there.
@@ -162,6 +191,12 @@ two thousand races before dying young in the Circus Maximus. The name fits a
 library whose whole job is moving single-cell data quickly — and it is a corpus
 tool, so the pun was irresistible.
 
+Look at what our charioteer is holding: a lance, raised high. That is no
+accident: every corpus rides on [Lance](https://github.com/lancedb/lance), the
+columnar format that lets scorpus pick any cell off disk as quickly as a lance
+finds its mark. The lance turns up in the wordmark too, as the leg of the **R**,
+and the three cells riding in the chariot are your data, along for the race.
+
 <br clear="right">
 
 ## Notes
@@ -172,3 +207,7 @@ tool, so the pun was irresistible.
   interrupted run cannot be mistaken for a complete corpus.
 - Only the selected matrix and its obs/var are converted. Other layers, `obsm`,
   `obsp`, and `uns` are not copied.
+
+## License
+
+MIT; see [LICENSE](LICENSE).

@@ -122,7 +122,7 @@ them as data.
 ## Hand back to AnnData
 
 ```python
-adata = corpus.to_anndata_lazy(chunk_rows=4096)          # Dask X, stays on disk
+adata = corpus.to_anndata_lazy()                         # Dask X in 8,192-cell chunks, stays on disk
 small = corpus.to_anndata(global_row_indices=[2, 0, 5])  # eager, selected rows
 corpus.write_h5ad("export.h5ad")                         # reopen with backed="r"
 ```

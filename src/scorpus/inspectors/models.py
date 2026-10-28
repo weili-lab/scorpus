@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, fields, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Mapping, TypeVar
 
 import yaml
 
-from ..contracts import CONTRACT_VERSION, MISSING_VALUE_LITERAL
+from ..contracts import CONTRACT_VERSION
 
 
 T = TypeVar("T")

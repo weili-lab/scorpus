@@ -26,6 +26,7 @@ def write_data(tmp_path, name="input", values=None, genes=("g1", "g2", "g3")):
 
 
 def test_original_metadata_and_lazy_roundtrip(tmp_path):
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     path, data = write_data(tmp_path)
     corpus = from_h5ad(path, tmp_path / "corpus", chunk_rows=2)
     assert not (tmp_path / "corpus" / "canonical-obs.parquet").exists()
@@ -78,6 +79,7 @@ def test_recovery_is_explicit(tmp_path):
 
 
 def test_explicit_non_count_preserves_floats(tmp_path):
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     values = np.array([[0.1, -0.7, 0], [0, 0, 0], [0.125, 3.14, 0], [0, 0, 0]], dtype=np.float64)
     path, _ = write_data(tmp_path, values=values)
     with pytest.raises(ValueError, match="no raw count found"):
@@ -104,6 +106,7 @@ def test_raw_uses_its_own_feature_metadata(tmp_path):
 
 
 def test_composition_alignment_and_no_copy(tmp_path):
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     path_a, data_a = write_data(tmp_path, "a")
     path_b, data_b = write_data(tmp_path, "b", genes=("g3", "g1", "g4"))
     a = from_h5ad(path_a, tmp_path / "a", chunk_rows=2)
@@ -167,6 +170,7 @@ def test_cli_conversion(tmp_path, monkeypatch):
 
 
 def test_explicit_zero_counts_and_runtime_metadata(tmp_path):
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     path, _ = write_data(tmp_path, values=np.zeros((4, 3), dtype=np.int32))
     corpus = from_h5ad(path, tmp_path / "zeros", layers="X", chunk_rows=2)
     assert not corpus.to_anndata().X.nnz
@@ -202,6 +206,7 @@ def plain_csr(values, columns):
 
 
 def test_lazy_chunks_match_plain_csr(tmp_path):
+    pytest.importorskip("dask")  # lazy export is the [lazy] extra
     """Every lazy chunk keeps values, column order and dtypes, with and without genes dropped by an inner join."""
     # Leading, consecutive and trailing empty rows within the 3-row chunks.
     values = np.array([[0, 0, 0], [1, 0, 2], [0, 0, 0], [3, 1, 4]], dtype=np.int32)

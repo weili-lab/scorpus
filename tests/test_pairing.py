@@ -75,7 +75,9 @@ def test_dose_as_cell_level_condition():
 
 def test_combinations_with_plain_polars():
     groups = make_groups(pd.DataFrame({"perturbation": ["ctrl", "A", "B", "A+B", "C"]}), by=["perturbation"])
-    parts = lambda e: e.str.split("+")
+    def parts(e):
+        return e.str.split("+")
+
     singles = pl.col("perturbation").is_in(["A", "B", "C"])
     add_one = cross(groups, source=singles, target=pl.col("perturbation") == "A+B").filter(
         parts(src.perturbation).list.set_difference(parts(tgt.perturbation)).list.len() == 0

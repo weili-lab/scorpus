@@ -5,13 +5,11 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from scorpus.canonical.contract import (
     CANONICAL_OBS_MUST_HAVE,
     CANONICAL_VAR_MUST_HAVE,
     CanonicalizationSchema,
-    GeneMappingConfig,
 )
 from scorpus.canonical.drafting import (
     _alias_match,

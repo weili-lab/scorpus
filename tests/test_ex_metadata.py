@@ -79,7 +79,8 @@ def test_saving_refuses_rows_that_left_corpus_order(tmp_path):
 
 
 def test_concat_members_load_ex_files_and_views_refuse_single_corpus_operations(tmp_path):
-    a, b = convert(tmp_path, "a"), convert(tmp_path, "b")
+    a = convert(tmp_path, "a")
+    convert(tmp_path, "b")
     a.add_obs_meta(pd.DataFrame({"leiden": ["0", "1", "1", "0"]}, index=a.obs.index))
     a.save_ex_obs("clusters")
     view = concat({

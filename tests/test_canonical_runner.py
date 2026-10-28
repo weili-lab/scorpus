@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -183,7 +182,6 @@ def _run_with_custom_obs_mapping(
     schema_path = tmp_path / "canonicalization-schema.yaml"
     out_root = tmp_path / "output"
 
-    cell_ids = [row.get("cell_id", f"cell_{index}") for index, row in enumerate(rows)]
     _make_raw_obs_parquet(raw_obs, rows)
     _make_raw_var_parquet(raw_var, ["gene1", "gene2"])
     base_schema = _make_minimal_schema(schema_path)
@@ -951,7 +949,7 @@ class TestVocabBuilding:
         v1.global_vocab_size = 2
 
         out_path = tmp_path / "canonical-vocab.yaml"
-        built = build_canonical_vocab([v1], output_path=out_path)
+        build_canonical_vocab([v1], output_path=out_path)
 
         assert out_path.exists()
         content = out_path.read_text()
