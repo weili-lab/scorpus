@@ -578,7 +578,9 @@ def inspect_target(target: InspectionTarget, output_root: Path) -> InspectionArt
                     int(adata.raw.shape[1]),
                 )
             )
-        for layer_name in adata.layers.keys():
+        # Backed AnnData lists .X among its layers under the key None; it is audited above.
+        layer_names = [name for name in adata.layers.keys() if name is not None]
+        for layer_name in layer_names:
             candidates.append(
                 _audit_matrix_candidate(
                     f".layers[{layer_name}]",
@@ -607,7 +609,7 @@ def inspect_target(target: InspectionTarget, output_root: Path) -> InspectionArt
             structure=StructureSummary(
                 has_raw=adata.raw is not None,
                 raw_var_rows=0 if adata.raw is None else int(adata.raw.shape[1]),
-                layers=tuple(str(layer_name) for layer_name in adata.layers.keys()),
+                layers=tuple(str(layer_name) for layer_name in layer_names),
             ),
             obs_fields=obs_fields,
             var_fields=var_fields,

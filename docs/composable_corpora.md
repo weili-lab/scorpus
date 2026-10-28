@@ -27,8 +27,8 @@ CLI equivalent:
 python -m scorpus.cli convert --source a.h5ad --output a.corpus
 ```
 
-Conversion currently writes **standalone Lance corpora**. Existing Lance/Zarr
-curated corpora remain readable. Conversion opens matrices through h5py and
+Conversion currently writes **standalone Lance corpora**. Existing curated Lance
+corpora remain readable. Conversion opens matrices through h5py and
 AnnData's backed sparse reader, including layers; it does not eagerly load all
 AnnData layers. Run conversion of large h5ad files on Slurm using the project
 execution environment.

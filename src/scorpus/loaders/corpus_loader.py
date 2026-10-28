@@ -1,8 +1,8 @@
 """Corpus factory for materialized perturbation corpora.
 
 ``load_corpus()`` reconstructs a training-ready ``Corpus`` from a corpus
-directory using canonical metadata as the source of truth. Slim main supports
-only Lance and Zarr corpora in aggregate or federated topology.
+directory using canonical metadata as the source of truth. Supports Lance
+corpora in aggregate or federated topology.
 """
 
 from __future__ import annotations
@@ -22,12 +22,10 @@ from .expression import (
     ExpressionReader,
     FederatedLanceReader,
     LanceDatasetEntry,
-    ZarrDatasetEntry,
     build_expression_reader,
 )
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
-from .zarr_reading import normalize_zarr_read_engine
 
 from ..materializers.paths import resolve_corpus_paths
 
@@ -360,10 +358,9 @@ def _save_ex(corpus: Corpus, kind: str, name: str | None) -> Path:
 
 def _normalize_backend(raw: str) -> str:
     """Map corpus-index backend strings to ``build_expression_reader`` keys."""
-    if raw not in {"lance", "zarr"}:
+    if raw != "lance":
         raise ValueError(
-            f"Unsupported corpus backend '{raw}'. "
-            "Supported: ['lance', 'zarr']"
+            f"Unsupported corpus backend '{raw}'. Supported: ['lance']"
         )
     return raw
 
@@ -381,96 +378,43 @@ def _build_range_entries(
     ]
 
 
-def _resolve_zarr_csr_paths(matrix_root: Path, stem: str) -> tuple[Path, Path, Path]:
-    csr_path = matrix_root / f"{stem}-csr.zarr"
-    if csr_path.is_dir():
-        return csr_path, csr_path, csr_path
-
-    row_offsets_path = matrix_root / f"{stem}-row-offsets.zarr"
-    indices_path = matrix_root / f"{stem}-indices.zarr"
-    counts_path = matrix_root / f"{stem}-counts.zarr"
-    if not row_offsets_path.is_dir():
-        raise FileNotFoundError(
-            f"Zarr row-offsets artifact not found for '{stem}': {row_offsets_path}"
-        )
-    if not indices_path.is_dir():
-        raise FileNotFoundError(
-            f"Zarr indices artifact not found for '{stem}': {indices_path}"
-        )
-    if not counts_path.is_dir():
-        raise FileNotFoundError(
-            f"Zarr counts artifact not found for '{stem}': {counts_path}"
-        )
-    return row_offsets_path, indices_path, counts_path
-
-
 def _build_aggregate_expression_components(
     root: Path,
     backend: str,
     global_ranges: Sequence[tuple[str, int, int, int]],
-    *,
-    zarr_read_engine: str,
 ) -> tuple[list[DatasetEntry], ExpressionReader]:
     entries = _build_range_entries(global_ranges)
-    if backend == "lance":
-        lance_path = root / "matrix" / "aggregated-cells.lance"
-        if not lance_path.exists():
-            raise FileNotFoundError(
-                f"Aggregate Lance file not found: {lance_path}"
-            )
-        return entries, build_expression_reader(
-            backend,
-            "aggregate",
-            entries,
-            lance_path=str(lance_path),
+    lance_path = root / "matrix" / "aggregated-cells.lance"
+    if not lance_path.exists():
+        raise FileNotFoundError(
+            f"Aggregate Lance file not found: {lance_path}"
         )
-
-    row_offsets_path, indices_path, counts_path = _resolve_zarr_csr_paths(
-        root / "matrix", "aggregated"
-    )
     return entries, build_expression_reader(
         backend,
         "aggregate",
         entries,
-        offsets_path=str(row_offsets_path),
-        indices_path=str(indices_path),
-        counts_path=str(counts_path),
-        read_engine=zarr_read_engine,
+        lance_path=str(lance_path),
     )
 
 
 def _build_federated_dataset_entry(
     root: Path,
-    backend: str,
     dataset_id: str,
     global_start: int,
     global_end: int,
-) -> LanceDatasetEntry | ZarrDatasetEntry:
+) -> LanceDatasetEntry:
     matrix_root = resolve_corpus_paths("federated", root, dataset_id).matrix_root
-    if backend == "lance":
-        lance_path = matrix_root / f"{dataset_id}.lance"
-        if not lance_path.exists():
-            raise FileNotFoundError(
-                f"Lance file not found for dataset '{dataset_id}': "
-                f"{lance_path}"
-            )
-        return LanceDatasetEntry(
-            dataset_id=dataset_id,
-            global_start=global_start,
-            global_end=global_end,
-            lance_path=str(lance_path),
+    lance_path = matrix_root / f"{dataset_id}.lance"
+    if not lance_path.exists():
+        raise FileNotFoundError(
+            f"Lance file not found for dataset '{dataset_id}': "
+            f"{lance_path}"
         )
-
-    row_offsets_path, indices_path, counts_path = _resolve_zarr_csr_paths(
-        matrix_root, dataset_id
-    )
-    return ZarrDatasetEntry(
+    return LanceDatasetEntry(
         dataset_id=dataset_id,
         global_start=global_start,
         global_end=global_end,
-        offsets_path=str(row_offsets_path),
-        indices_path=str(indices_path),
-        counts_path=str(counts_path),
+        lance_path=str(lance_path),
     )
 
 
@@ -478,18 +422,15 @@ def _build_federated_expression_components(
     root: Path,
     backend: str,
     global_ranges: Sequence[tuple[str, int, int, int]],
-    *,
-    zarr_read_engine: str,
 ) -> tuple[list[DatasetEntry], ExpressionReader]:
     entries = [
-        _build_federated_dataset_entry(root, backend, ds_id, g_start, g_end)
+        _build_federated_dataset_entry(root, ds_id, g_start, g_end)
         for ds_id, _dsi, g_start, g_end in global_ranges
     ]
     return cast(list[DatasetEntry], entries), build_expression_reader(
         backend,
         "federated",
         cast(list[DatasetEntry], entries),
-        read_engine=zarr_read_engine,
     )
 
 
@@ -498,23 +439,11 @@ def _build_expression_components(
     topology: str,
     backend: str,
     global_ranges: Sequence[tuple[str, int, int, int]],
-    *,
-    zarr_read_engine: str,
 ) -> tuple[list[DatasetEntry], ExpressionReader]:
     if topology == "aggregate":
-        return _build_aggregate_expression_components(
-            root,
-            backend,
-            global_ranges,
-            zarr_read_engine=zarr_read_engine,
-        )
+        return _build_aggregate_expression_components(root, backend, global_ranges)
     if topology == "federated":
-        return _build_federated_expression_components(
-            root,
-            backend,
-            global_ranges,
-            zarr_read_engine=zarr_read_engine,
-        )
+        return _build_federated_expression_components(root, backend, global_ranges)
     raise ValueError(
         f"Unknown topology '{topology}'. "
         f"Expected 'aggregate' or 'federated'."
@@ -920,7 +849,6 @@ def load_corpus(
     corpus_root: str | Path,
     *,
     extra_metadata_columns: Sequence[str] | None = None,
-    zarr_read_engine: str = "zarr-python",
     ex_obs: bool | str | None = None,
     ex_var: bool | str | None = None,
 ) -> Corpus:
@@ -978,11 +906,6 @@ def load_corpus(
     topology = str(metadata.get("topology", ""))
     raw_backend = str(metadata.get("backend", ""))
     backend = _normalize_backend(raw_backend)
-    resolved_zarr_read_engine = normalize_zarr_read_engine(zarr_read_engine)
-    if backend != "zarr" and resolved_zarr_read_engine != "zarr-python":
-        raise ValueError(
-            "zarr_read_engine is only supported when loading a Zarr corpus"
-        )
     datasets = index_doc.get("datasets", [])
     if not datasets:
         raise ValueError(
@@ -1039,7 +962,6 @@ def load_corpus(
         topology,
         backend,
         global_ranges,
-        zarr_read_engine=resolved_zarr_read_engine,
     )
 
     # ------------------------------------------------------------------

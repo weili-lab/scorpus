@@ -148,7 +148,7 @@ class TestMaterializationManifest:
             contract_version="0.3.0",
             dataset_id="test_ds",
             route="create_new",
-            backend="zarr",
+            backend="lance",
             topology="federated",
             count_source=CountSourceSpec(selected=".X", integer_only=True),
             outputs=OutputRoots(metadata_root="/meta", matrix_root="/matrix"),
@@ -354,39 +354,6 @@ class TestDatasetMaterializerConstructorApi:
             dataset_id="ds_test",
         )
         assert mat.writer_state is None
-
-    def test_constructor_accepts_is_last_dataset(self):
-        """_is_last_dataset parameter is stored."""
-        try:
-            from scorpus.materializers import DatasetMaterializer
-        except ImportError:
-            pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from scorpus.materializers.models import OutputRoots
-
-        mat = DatasetMaterializer(
-            source_path="/fake/source.h5ad",
-            inspection_summary_path="/fake/dataset-summary.yaml",
-            output_roots=OutputRoots(metadata_root="/meta", matrix_root="/matrix"),
-            dataset_id="ds_test",
-            _is_last_dataset=True,
-        )
-        assert mat._is_last_dataset is True
-
-    def test_constructor_is_last_dataset_default_false(self):
-        """_is_last_dataset defaults to False."""
-        try:
-            from scorpus.materializers import DatasetMaterializer
-        except ImportError:
-            pytest.skip("DatasetMaterializer import unavailable (anndata not installed)")
-        from scorpus.materializers.models import OutputRoots
-
-        mat = DatasetMaterializer(
-            source_path="/fake/source.h5ad",
-            inspection_summary_path="/fake/dataset-summary.yaml",
-            output_roots=OutputRoots(metadata_root="/meta", matrix_root="/matrix"),
-            dataset_id="ds_test",
-        )
-        assert mat._is_last_dataset is False
 
     def test_dataset_index_and_global_row_start_defaults(self):
         """dataset_index and global_row_start have sensible defaults."""

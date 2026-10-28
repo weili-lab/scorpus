@@ -44,7 +44,6 @@ _TYPED_OBS_ARROW_TYPES: dict[str, pa.DataType] = {
     "global_row_index": pa.int64(),
     "dataset_index": pa.int32(),
     "local_row_index": pa.int64(),
-    "size_factor": pa.float64(),
 }
 
 _NULLABLE_STRING_OBS_FIELDS: frozenset[str] = frozenset(
@@ -154,9 +153,6 @@ class CanonicalizationRunner:
         Path to the raw obs sidecar (``raw-obs.parquet``).
     raw_var_path : str | Path
         Path to the raw var sidecar (``raw-var.parquet``).
-    size_factor_path : str | Path | None
-        Path to the size-factor sidecar (``size-factor.parquet``).
-        When ``None``, size_factor defaults to 1.0.
     schema_path : str | Path
         Path to the per-dataset ``canonicalization-schema.yaml``.
     output_root : str | Path
@@ -167,13 +163,11 @@ class CanonicalizationRunner:
         self,
         raw_obs_path: str | Path,
         raw_var_path: str | Path,
-        size_factor_path: str | Path | None,
         schema_path: str | Path,
         output_root: str | Path,
     ):
         self._raw_obs_path = Path(raw_obs_path)
         self._raw_var_path = Path(raw_var_path)
-        self._size_factor_path = Path(size_factor_path) if size_factor_path else None
         self._schema_path = Path(schema_path)
         self._output_root = Path(output_root)
 
@@ -191,10 +185,10 @@ class CanonicalizationRunner:
         self._output_root.mkdir(parents=True, exist_ok=True)
 
         # --- Load raw sidecars ---
-        obs_df, var_df, size_factors = self._load_sidecars()
+        obs_df, var_df = self._load_sidecars()
 
         # --- Canonicalize obs ---
-        obs_table = self._canonicalize_obs(obs_df, size_factors)
+        obs_table = self._canonicalize_obs(obs_df)
         obs_path = self._output_root / "canonical-obs.parquet"
         pq.write_table(obs_table, obs_path)
         logger.info("Wrote canonical obs: %s (%d rows)", obs_path, obs_table.num_rows)
@@ -224,16 +218,15 @@ class CanonicalizationRunner:
     # Sidecar loading
     # ------------------------------------------------------------------
 
-    def _load_sidecars(self) -> tuple[dict[str, list[Any]], dict[str, list[Any]], list[float]]:
-        """Load raw obs, raw var, and size-factor parquets into dict-of-columns form.
+    def _load_sidecars(self) -> tuple[dict[str, list[Any]], dict[str, list[Any]]]:
+        """Load raw obs and raw var parquets into dict-of-columns form.
 
         Returns
         -------
-        (obs_columns, var_columns, size_factors)
+        (obs_columns, var_columns)
             ``obs_columns`` is a dict mapping column name → list of values.
             ``raw_fields`` JSON is parsed and merged into the dict.
             ``var_columns`` is the same shape for var.
-            ``size_factors`` is a list of float values in cell order.
         """
         # --- Raw obs ---
         obs_table = pq.read_table(str(self._raw_obs_path))
@@ -255,23 +248,6 @@ class CanonicalizationRunner:
                     # Ensure all existing nested keys have None at this row
                     # so array lengths stay consistent
                     pass
-        n_obs = obs_table.num_rows
-
-        # --- Size factors ---
-        size_factors: list[float]
-        if self._size_factor_path and self._size_factor_path.exists():
-            sf_table = pq.read_table(str(self._size_factor_path))
-            # Verify cell_id ordering matches raw obs
-            sf_cell_ids = sf_table.column("cell_id").to_pylist()
-            obs_cell_ids = obs_columns.get("cell_id", [])
-            if sf_cell_ids != obs_cell_ids:
-                # Attempt to align by cell_id
-                sf_map = dict(zip(sf_cell_ids, sf_table.column("size_factor").to_pylist()))
-                size_factors = [float(sf_map.get(cid, 1.0)) for cid in obs_cell_ids]
-            else:
-                size_factors = [float(v) for v in sf_table.column("size_factor").to_pylist()]
-        else:
-            size_factors = [1.0] * n_obs
 
         # --- Raw var ---
         var_table = pq.read_table(str(self._raw_var_path))
@@ -290,7 +266,7 @@ class CanonicalizationRunner:
                             var_columns[k] = [None] * var_table.num_rows
                         var_columns[k][i] = v
 
-        return obs_columns, var_columns, size_factors
+        return obs_columns, var_columns
 
     # ------------------------------------------------------------------
     # Obs canonicalization
@@ -299,7 +275,6 @@ class CanonicalizationRunner:
     def _canonicalize_obs(
         self,
         obs_raw: dict[str, list[Any]],
-        size_factors: list[float],
     ) -> pa.Table:
         """Build a canonical obs Parquet table from raw columns and a schema."""
         schema = self._schema
@@ -307,7 +282,7 @@ class CanonicalizationRunner:
         columns: dict[str, pa.Array] = {}
 
         for mapping in schema.obs_column_mappings:
-            col = self._resolve_obs_column(mapping, obs_raw, size_factors, n_rows)
+            col = self._resolve_obs_column(mapping, obs_raw, n_rows)
             columns[mapping.canonical_name] = col
 
         # Extensible columns
@@ -338,7 +313,6 @@ class CanonicalizationRunner:
         self,
         mapping: ObsColumnMapping,
         obs_raw: dict[str, list[Any]],
-        size_factors: list[float],
         n_rows: int,
     ) -> pa.Array:
         """Resolve a single obs column mapping to a canonical PyArrow array."""
@@ -395,14 +369,6 @@ class CanonicalizationRunner:
             )
 
         if strategy == "source-field":
-            if mapping.canonical_name == "size_factor":
-                # Special case: size_factor is numeric, stored separately
-                return _build_obs_array(
-                    mapping.canonical_name,
-                    list(size_factors),
-                    fallback=mapping.fallback,
-                )
-
             src_col = mapping.source_column or mapping.canonical_name
             raw_vals = obs_raw.get(src_col, [])
             if not raw_vals:
@@ -826,7 +792,7 @@ class CanonicalizationRunner:
         vocab = CanonicalVocab()
 
         # Obs categories — collect unique values per string column
-        skip_obs = {"global_row_index", "local_row_index", "size_factor"}
+        skip_obs = {"global_row_index", "local_row_index"}
         for col_name in obs_table.column_names:
             if col_name in skip_obs:
                 continue
@@ -961,7 +927,6 @@ def run_canonicalization(
     dataset_id: str,
     raw_obs_path: str | Path,
     raw_var_path: str | Path,
-    size_factor_path: str | Path | None,
     schema_path: str | Path,
     output_root: str | Path,
 ) -> CanonicalizationResult:
@@ -975,8 +940,6 @@ def run_canonicalization(
         Raw obs sidecar parquet.
     raw_var_path : Path
         Raw var sidecar parquet.
-    size_factor_path : Path or None
-        Size-factor sidecar parquet.
     schema_path : Path
         ``canonicalization-schema.yaml`` for this dataset.
     output_root : Path
@@ -985,7 +948,6 @@ def run_canonicalization(
     runner = CanonicalizationRunner(
         raw_obs_path=raw_obs_path,
         raw_var_path=raw_var_path,
-        size_factor_path=size_factor_path,
         schema_path=schema_path,
         output_root=output_root,
     )
@@ -1072,12 +1034,10 @@ def _build_obs_array(
     )
 
 
-def _coerce_typed_obs_value(canonical_name: str, value: Any) -> int | float | None:
-    """Convert safe structural/numeric obs fields to typed values."""
+def _coerce_typed_obs_value(canonical_name: str, value: Any) -> int | None:
+    """Convert structural integer obs fields to typed values."""
     if value is None or _is_null_like_str(str(value)):
         return None
-    if canonical_name == "size_factor":
-        return float(value)
     return int(value)
 
 

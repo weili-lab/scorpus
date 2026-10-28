@@ -4,8 +4,7 @@ This document describes the boundary between `scorpus` and standard
 single-cell analysis tools.
 
 `scorpus` owns corpus materialization, canonical metadata, sparse count
-storage, feature alignment for loaders, durable per-dataset HVG rankings, and
-training/runtime access patterns. After selected corpus rows or datasets are exported
+storage, feature alignment for loaders, and training/runtime access patterns. After selected corpus rows or datasets are exported
 as `AnnData`, Scanpy or RAPIDS should own the usual analysis preprocessing.
 
 ## Public handoff API
@@ -119,14 +118,11 @@ GPU runs short of memory; see the chunk-size table in the scanpy/RAPIDS guide.
 Only `adata.X` is lazy. `adata.obs` and `adata.var` are loaded in memory because
 they are small compared with the count matrix.
 
-The Dask chunks are CSR matrices. Each chunk reads a contiguous row block from
-the active corpus backend:
+The Dask chunks are CSR matrices. Each chunk reads a contiguous row block
+through the Lance expression reader and unpacks Arrow list columns.
 
-- Zarr chunks read `row_offsets`, `indices`, and `counts` through the Zarr expression reader.
-- Lance chunks read row blocks through the Lance expression reader and unpack Arrow list columns.
-
-This keeps the handoff lightweight: no new AnnData-Zarr copy is required just to
-let AnnData hold a Dask-backed `X`.
+This keeps the handoff lightweight: no AnnData copy of the counts is required just
+to let AnnData hold a Dask-backed `X`.
 
 For GPU workflows, `to_anndata_lazy(..., device="cuda")` (or `"cuda:<index>"`)
 makes each Dask task return a CuPy CSR chunk. This works for standalone corpora

@@ -115,19 +115,3 @@ def write_feature_provenance_parquet(
     })
     pq.write_table(table, parquet_path)
     return parquet_path
-
-
-def write_size_factor_parquet(
-    *,
-    size_factors: np.ndarray,
-    cell_ids: pd.Index,
-    meta_root: Path,
-) -> Path:
-    """Write median-normalized per-cell size factors."""
-    parquet_path = meta_root / "size-factor.parquet"
-    table = pa.table({
-        "cell_id": pa.array([str(c) for c in cell_ids], type=pa.string()),
-        "size_factor": pa.array(size_factors.tolist(), type=pa.float64()),
-    })
-    pq.write_table(table, parquet_path)
-    return parquet_path

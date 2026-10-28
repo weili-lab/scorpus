@@ -8,12 +8,7 @@ from .loaders.composition import concat
 from .materializers.reorder import reorder_corpus
 from .staging import estimate, stage, staged
 
-from .contracts import (
-    BLUEPRINT,
-    CONTRACT_VERSION,
-    REQUIRED_ARTIFACTS,
-    build_phase1_blueprint,
-)
+from .contracts import CONTRACT_VERSION
 
 # scanpy is optional; when installed, make its Dask QC/DE/seurat_v3 helpers work chunk by chunk
 # so a lazy export is never pulled into memory as one block (see _scanpy_dask.py).
@@ -23,8 +18,5 @@ if importlib.util.find_spec("scanpy") is not None:
 __all__ = [
     "from_h5ad", "from_10x_h5_files", "load_corpus", "concat", "Corpus",
     "estimate", "stage", "staged", "reorder_corpus",
-    "BLUEPRINT",
     "CONTRACT_VERSION",
-    "REQUIRED_ARTIFACTS",
-    "build_phase1_blueprint",
 ]

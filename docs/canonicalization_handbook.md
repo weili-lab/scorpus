@@ -27,7 +27,6 @@ For each dataset, canonicalization reads:
 - `materialization-manifest.yaml`
 - `raw-obs.parquet`
 - `raw-var.parquet`
-- `size-factor.parquet` when present
 - `final-schema.yaml`
 
 It writes:
@@ -49,7 +48,6 @@ corpus/
     └── <dataset_id>/
         ├── raw-obs.parquet
         ├── raw-var.parquet
-        ├── size-factor.parquet
         ├── draft-schema.yaml
         ├── final-schema.yaml
         └── canonical_meta/
@@ -65,7 +63,6 @@ corpus/
     └── meta/
         ├── raw-obs.parquet
         ├── raw-var.parquet
-        ├── size-factor.parquet
         ├── draft-schema.yaml
         ├── final-schema.yaml
         └── canonical_meta/
@@ -182,7 +179,6 @@ Every `canonical-obs.parquet` must contain:
 - `perturb_label`
 - `perturb_type`
 - `sex`
-- `size_factor`
 - `species`
 - `timepoint`
 - `timepoint_unit`
@@ -193,7 +189,6 @@ Typed obs fields:
 - `global_row_index`: int64
 - `dataset_index`: int32
 - `local_row_index`: int64
-- `size_factor`: float64
 
 Nullable string obs fields:
 
@@ -234,9 +229,6 @@ refer to the original obs columns by name.
 runner expands `raw_var` so schema mappings can refer to original var columns by
 name.
 
-`size-factor.parquet` is aligned by `cell_id` when needed. If no size-factor file
-is present, `size_factor` defaults to `1.0`.
-
 ## Obs Mapping Strategies
 
 ### `source-field`
@@ -254,9 +246,6 @@ Read one raw obs column and apply transforms.
 
 If the source column is missing, the runner fills the field with `fallback` and
 records a warning.
-
-Special case: `size_factor` with `source-field` reads from the size-factor vector
-rather than raw obs.
 
 ### `literal`
 
@@ -643,9 +632,6 @@ obs_column_mappings:
     default_literal: unknown
   - canonical_name: sex
     strategy: null
-  - canonical_name: size_factor
-    strategy: source-field
-    source_column: size_factor
   - canonical_name: species
     strategy: literal
     literal_value: human

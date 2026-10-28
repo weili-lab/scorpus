@@ -44,7 +44,6 @@ CANONICAL_OBS_MUST_HAVE: tuple[str, ...] = (
     "perturb_label",
     "perturb_type",
     "sex",
-    "size_factor",
     "species",
     "timepoint",
     "timepoint_unit",

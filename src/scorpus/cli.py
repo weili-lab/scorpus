@@ -33,7 +33,7 @@ from .materializers.paths import resolve_corpus_paths
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-BACKEND_CHOICES = ["lance", "zarr"]
+BACKEND_CHOICES = ["lance"]
 TOPOLOGY_CHOICES = ["federated", "aggregate"]
 
 
@@ -415,7 +415,6 @@ def _materialize_dataset(
     dataset_index: int,
     global_row_start: int,
     writer_state: dict | None,
-    is_last_dataset: bool,
     total_datasets: int,
     dry_run: bool,
     display_index: int = 0,
@@ -470,7 +469,6 @@ def _materialize_dataset(
         dataset_index=dataset_index,
         global_row_start=global_row_start,
         writer_state=writer_state,
-        _is_last_dataset=is_last_dataset,
     )
 
     manifest = materializer.materialize()
@@ -626,7 +624,6 @@ def _cmd_materialize(args: argparse.Namespace) -> None:
         writer_state: dict | None = None
         for i, ds in enumerate(sources):
             mode_name = "create" if i == 0 and effective_mode == "create" else "append"
-            is_last = aggregate and (i == total - 1)
             next_global, writer_state = _materialize_dataset(
                 ds, args,
                 backend=effective_backend,
@@ -636,7 +633,6 @@ def _cmd_materialize(args: argparse.Namespace) -> None:
                 dataset_index=next_dataset_index + i,
                 global_row_start=next_global,
                 writer_state=writer_state,
-                is_last_dataset=is_last,
                 total_datasets=total,
                 dry_run=True,
                 display_index=i,
@@ -657,7 +653,6 @@ def _cmd_materialize(args: argparse.Namespace) -> None:
 
     for i, ds in enumerate(sources):
         mode_name = "create" if i == 0 and effective_mode == "create" else "append"
-        is_last = aggregate and (i == total - 1)
         try:
             next_global, writer_state = _materialize_dataset(
                 ds, args,
@@ -668,7 +663,6 @@ def _cmd_materialize(args: argparse.Namespace) -> None:
                 dataset_index=next_dataset_index + i,
                 global_row_start=next_global,
                 writer_state=writer_state,
-                is_last_dataset=is_last,
                 total_datasets=total,
                 dry_run=False,
                 display_index=i,
@@ -1153,11 +1147,10 @@ def _add_canonicalize_args(sub: argparse.ArgumentParser) -> None:
 def _resolve_sidecars_from_corpus(
     dataset_id: str,
     corpus_root: Path,
-) -> tuple[str, str, str | None]:
+) -> tuple[str, str]:
     """Look up *dataset_id* in the corpus index and return raw sidecar paths.
 
-    Returns ``(raw_obs_path, raw_var_path, size_factor_path)`` where
-    the paths are read from the dataset's ``materialization-manifest.yaml``.
+    Returns ``(raw_obs_path, raw_var_path)`` where the paths are read from the dataset's ``materialization-manifest.yaml``.
     """
     from .materializers.models import (
         CorpusIndexDocument,
@@ -1181,7 +1174,6 @@ def _resolve_sidecars_from_corpus(
             manifest = MaterializationManifest.from_yaml_file(manifest_path)
             raw_obs = manifest.raw_cell_meta_path
             raw_var = manifest.raw_feature_meta_path
-            size_factor = manifest.size_factor_parquet_path
 
             if not raw_obs:
                 raise ValueError(
@@ -1193,18 +1185,11 @@ def _resolve_sidecars_from_corpus(
                 )
             raw_obs_path = Path(raw_obs)
             raw_var_path = Path(raw_var)
-            size_factor_path = Path(size_factor) if size_factor else None
             if not raw_obs_path.is_absolute():
                 raw_obs_path = corpus_root / raw_obs_path
             if not raw_var_path.is_absolute():
                 raw_var_path = corpus_root / raw_var_path
-            if size_factor_path is not None and not size_factor_path.is_absolute():
-                size_factor_path = corpus_root / size_factor_path
-            return (
-                str(raw_obs_path),
-                str(raw_var_path),
-                str(size_factor_path) if size_factor_path is not None else None,
-            )
+            return str(raw_obs_path), str(raw_var_path)
 
     raise ValueError(
         f"dataset_id '{dataset_id}' not found in corpus index at {corpus_index_path}"
@@ -1270,15 +1255,11 @@ def _cmd_canonicalize(args: argparse.Namespace) -> None:
     for dataset_id, schema_path, output_root in schemas:
         print(f"\n  [{dataset_id}]")
         try:
-            raw_obs, raw_var, size_factor = _resolve_sidecars_from_corpus(
+            raw_obs, raw_var = _resolve_sidecars_from_corpus(
                 dataset_id, corpus_root
             )
             print(f"    raw_obs: {raw_obs}")
             print(f"    raw_var: {raw_var}")
-            if size_factor:
-                print(f"    size_factor: {size_factor}")
-            else:
-                print("    size_factor: (none — defaults to 1.0)")
             print(f"    final_schema: {schema_path}")
             print(f"    canonical_output: {output_root}")
 
@@ -1290,7 +1271,6 @@ def _cmd_canonicalize(args: argparse.Namespace) -> None:
                 dataset_id=dataset_id,
                 raw_obs_path=raw_obs,
                 raw_var_path=raw_var,
-                size_factor_path=size_factor,
                 schema_path=schema_path,
                 output_root=output_root,
             )

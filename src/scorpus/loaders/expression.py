@@ -1,20 +1,19 @@
 """Backend-agnostic expression readers.
 
-Defines the ``ExpressionReader`` protocol, a ``BaseExpressionReader`` abstract
-class that handles global→local routing and order-preserving reassembly, and
-backend-specific implementations for the remaining slim-main readers.
+Defines the ``ExpressionReader`` protocol, a ``BaseExpressionReader`` base
+class holding the dataset routing entries, and the Lance readers.
 
 Lance readers (and views over them) use ``SortedTakeReader``: one sorted
 ``take`` per table, all tables read at once, and at most one copy into the batch
 (none for sorted, distinct rows of one two-column table).
 
-Supported backends: Lance and Zarr.
+Supported backend: Lance.
 Supported topologies: aggregate and federated.
 
 Readers return **only expression data** via
 ``read_expression_flat(global_indices) -> ExpressionBatch``. Identity and
-metadata fields (dataset_id, dataset_index, local_row_index, size_factor,
-etc.) belong in ``MetadataIndex``.
+metadata fields (dataset_id, dataset_index, local_row_index, etc.) belong in
+``MetadataIndex``.
 """
 
 from __future__ import annotations
@@ -28,8 +27,6 @@ from typing import Any, NamedTuple, Protocol, Sequence
 
 import numpy as np
 
-from .zarr_reading import open_csr_arrays, normalize_zarr_read_engine
-
 __all__ = [
     "ExpressionBatch",
     "ExpressionReader",
@@ -37,10 +34,7 @@ __all__ = [
     "SortedTakeReader",
     "AggregateLanceReader",
     "FederatedLanceReader",
-    "AggregateZarrReader",
-    "FederatedZarrReader",
     "LanceDatasetEntry",
-    "ZarrDatasetEntry",
     "DatasetEntry",
     "build_expression_reader",
 ]
@@ -99,19 +93,6 @@ class LanceDatasetEntry(DatasetEntry):
     counts_dtype: str | None = None
 
 
-@dataclass(frozen=True)
-class ZarrDatasetEntry(DatasetEntry):
-    """Zarr-specific dataset entry with paths to the CSR-format arrays.
-
-    For the v3 sharded CSR layout, all three paths point to the same Zarr
-    group. Legacy corpora keep one Zarr group per array.
-    """
-
-    offsets_path: str | Path
-    indices_path: str | Path
-    counts_path: str | Path
-
-
 # ---------------------------------------------------------------------------
 # Protocol
 # ---------------------------------------------------------------------------
@@ -152,44 +133,13 @@ def _empty_expression_batch(global_indices: Sequence[int] | None = None) -> Expr
     )
 
 
-def _cell_arrays_to_expression_batch(
-    global_indices: Sequence[int],
-    cells: Sequence[tuple[np.ndarray, np.ndarray]],
-) -> ExpressionBatch:
-    """Convert ordered per-cell arrays into an ``ExpressionBatch``."""
-    indices = np.array([int(idx) for idx in global_indices], dtype=np.int64)
-    if len(cells) == 0:
-        return _empty_expression_batch(indices.tolist())
-
-    row_offsets = np.zeros(len(cells) + 1, dtype=np.int64)
-    egi_parts: list[np.ndarray] = []
-    ec_parts: list[np.ndarray] = []
-    for pos, (gene_indices, counts) in enumerate(cells):
-        gene_indices = np.asarray(gene_indices, dtype=np.int32)
-        counts = np.asarray(counts)
-        egi_parts.append(gene_indices)
-        ec_parts.append(counts)
-        row_offsets[pos + 1] = row_offsets[pos] + len(gene_indices)
-
-    return ExpressionBatch(
-        batch_size=len(cells),
-        global_row_index=indices,
-        row_offsets=row_offsets,
-        expressed_gene_indices=np.concatenate(egi_parts),
-        expression_counts=np.concatenate(ec_parts),
-    )
-
-
 # ---------------------------------------------------------------------------
-# BaseExpressionReader — handles routing, grouping, and reassembly
+# BaseExpressionReader — holds the dataset routing entries
 # ---------------------------------------------------------------------------
 
 
 class BaseExpressionReader(ABC):
     """Abstract base for expression readers.
-
-    Handles global→local routing, per-dataset grouping, and order-preserving
-    reassembly.  Subclasses implement only backend-specific local-row reading.
 
     Parameters
     ----------
@@ -202,112 +152,6 @@ class BaseExpressionReader(ABC):
         self._entries: list[DatasetEntry] = sorted(
             entries, key=lambda e: e.global_start
         )
-        # Precompute stop array for np.searchsorted-based routing
-        self._stops: np.ndarray = np.array(
-            [e.global_end for e in self._entries], dtype=np.int64
-        )
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
-    def read_expression_flat(
-        self, global_indices: Sequence[int]
-    ) -> ExpressionBatch:
-        """Read expression data with shared routing and order reassembly.
-
-        Backends with a more efficient flat representation can override this
-        method. Other readers inherit this shared order-preserving
-        implementation backed by per-dataset local reads.
-        """
-        if not global_indices:
-            return _empty_expression_batch()
-
-        indices = [int(idx) for idx in global_indices]
-        self._validate_all(indices)
-
-        grouped: dict[str, list[tuple[int, int]]] = {}
-        for output_pos, global_idx in enumerate(indices):
-            entry, local_idx = self._resolve_entry(global_idx)
-            grouped.setdefault(entry.dataset_id, []).append((output_pos, local_idx))
-
-        cells_by_pos: dict[int, tuple[np.ndarray, np.ndarray]] = {}
-        for ds_id, selections in grouped.items():
-            entry = self._find_entry_by_id(ds_id)
-            local_indices = [local for _, local in selections]
-            cells = self._read_local_cells(entry, local_indices)
-            if len(cells) != len(selections):
-                raise ValueError(
-                    f"Reader for dataset_id '{ds_id}' returned {len(cells)} cells "
-                    f"for {len(selections)} requested indices"
-                )
-            for (output_pos, _), cell in zip(selections, cells, strict=True):
-                cells_by_pos[output_pos] = cell
-
-        ordered_cells = [cells_by_pos[pos] for pos in range(len(indices))]
-        return _cell_arrays_to_expression_batch(indices, ordered_cells)
-
-    # ------------------------------------------------------------------
-    # Routing helpers (shared across all backends)
-    # ------------------------------------------------------------------
-
-    def _resolve_entry(self, global_index: int) -> tuple[DatasetEntry, int]:
-        """Resolve a global index to its owning dataset entry and local index.
-
-        Uses ``np.searchsorted`` on ``global_end`` stops for O(log N) lookup.
-        """
-        entry_idx = _searchsorted_entry(self._stops, global_index)
-        entry = self._entries[entry_idx]
-        if not (entry.global_start <= global_index < entry.global_end):
-            raise IndexError(
-                f"global_index {global_index} does not fall within any "
-                f"registered dataset range"
-            )
-        local_idx = global_index - entry.global_start
-        return entry, local_idx
-
-    def _find_entry_by_id(self, dataset_id: str) -> DatasetEntry:
-        """Return the entry for *dataset_id*."""
-        for entry in self._entries:
-            if entry.dataset_id == dataset_id:
-                return entry
-        raise KeyError(
-            f"dataset_id '{dataset_id}' not found; "
-            f"available: {[e.dataset_id for e in self._entries]}"
-        )
-
-    def _validate_all(self, indices: list[int]) -> None:
-        """Validate that all indices are within the total corpus range.
-
-        Subclasses may override to add backend-specific checks (e.g.,
-        Lance row count check).  The base implementation checks only
-        that indices are non-negative and within the overall start/end
-        bounds implied by the entry list.
-        """
-        total_start = self._entries[0].global_start
-        total_end = self._entries[-1].global_end
-        for idx in indices:
-            if idx < total_start or idx >= total_end:
-                raise IndexError(
-                    f"global_index {idx} out of range "
-                    f"[{total_start}, {total_end})"
-                )
-
-    # ------------------------------------------------------------------
-    # Backend-specific hook
-    # ------------------------------------------------------------------
-
-    def _read_local_cells(
-        self, entry: DatasetEntry, local_indices: list[int]
-    ) -> list[tuple[np.ndarray, np.ndarray]]:
-        """Read per-cell expression arrays within one dataset.
-
-        Returns one ``(expressed_gene_indices, expression_counts)`` tuple per
-        requested local index, in the same order as ``local_indices``.
-        Needed by readers that use the per-cell ``read_expression_flat`` above
-        (Zarr); ``SortedTakeReader`` subclasses read whole tables instead.
-        """
-        raise NotImplementedError
 
 
 # ===================================================================
@@ -600,110 +444,6 @@ class FederatedLanceReader(SortedTakeReader):
 
 
 # ===================================================================
-# Zarr readers
-# ===================================================================
-
-
-def _zarr_read_cells(
-    offsets: np.ndarray,
-    indices_flat: np.ndarray,
-    counts_flat: np.ndarray,
-    local_indices: list[int],
-) -> list[tuple[np.ndarray, np.ndarray]]:
-    """Read per-cell expression arrays from CSR-format Zarr arrays."""
-    cells: list[tuple[np.ndarray, np.ndarray]] = []
-    for local_idx in local_indices:
-        s = slice(offsets[local_idx], offsets[local_idx + 1])
-        cells.append((indices_flat[s].copy(), counts_flat[s].copy()))
-    return cells
-
-
-class AggregateZarrReader(BaseExpressionReader):
-    """Expression reader for aggregate Zarr topology (CSR format).
-
-    Parameters
-    ----------
-    offsets_path : str or Path
-        Path to the row-offsets Zarr array (int64, shape [n_rows+1]).
-    indices_path : str or Path
-        Path to the flat gene-indices Zarr array (int32).
-    counts_path : str or Path
-        Path to the flat expression-counts Zarr array (int32).
-    entries : list of DatasetEntry
-        Dataset range entries (single entry for aggregate).
-    """
-
-    def __init__(
-        self,
-        offsets_path: str | Path,
-        indices_path: str | Path,
-        counts_path: str | Path,
-        entries: list[DatasetEntry],
-        *,
-        read_engine: str = "zarr-python",
-    ):
-        super().__init__(entries)
-        self._read_engine = normalize_zarr_read_engine(read_engine)
-        arrays = open_csr_arrays(
-            offsets_path,
-            indices_path,
-            counts_path,
-            read_engine=self._read_engine,
-        )
-        self._offsets = arrays.row_offsets
-        self._indices = arrays.indices
-        self._counts = arrays.counts
-
-    def _read_local_cells(
-        self, entry: DatasetEntry, local_indices: list[int]
-    ) -> list[tuple[np.ndarray, np.ndarray]]:
-        global_positions = [entry.global_start + li for li in local_indices]
-        return _zarr_read_cells(
-            self._offsets,
-            self._indices,
-            self._counts,
-            global_positions,
-        )
-
-
-class FederatedZarrReader(BaseExpressionReader):
-    """Expression reader for federated Zarr topology (CSR format).
-
-    Parameters
-    ----------
-    entries : list of ZarrDatasetEntry
-        One entry per dataset, each with its own Zarr array paths.
-    """
-
-    def __init__(self, entries: list[ZarrDatasetEntry], *, read_engine: str = "zarr-python"):
-        super().__init__(entries)  # type: ignore[arg-type]
-        self._read_engine = normalize_zarr_read_engine(read_engine)
-        self._arrays_cache: dict[str, Any] = {}
-
-    def _open_arrays(self, entry: ZarrDatasetEntry):
-        ds_id = entry.dataset_id
-        if ds_id not in self._arrays_cache:
-            self._arrays_cache[ds_id] = open_csr_arrays(
-                entry.offsets_path,
-                entry.indices_path,
-                entry.counts_path,
-                read_engine=self._read_engine,
-            )
-        arrays = self._arrays_cache[ds_id]
-        return arrays.row_offsets, arrays.indices, arrays.counts
-
-    def _read_local_cells(
-        self, entry: DatasetEntry, local_indices: list[int]
-    ) -> list[tuple[np.ndarray, np.ndarray]]:
-        zarr_entry = self._find_entry_by_id(entry.dataset_id)
-        assert isinstance(zarr_entry, ZarrDatasetEntry)
-        offsets, indices_arr, counts_arr = self._open_arrays(zarr_entry)
-        return _zarr_read_cells(
-            offsets, indices_arr, counts_arr, local_indices
-        )
-
-
-# ===================================================================
 # Factory
 # ===================================================================
 
@@ -719,7 +459,7 @@ def build_expression_reader(
     Parameters
     ----------
     backend : str
-        One of ``"lance"`` or ``"zarr"``.
+        Only ``"lance"``.
     topology : str
         Either ``"aggregate"`` or ``"federated"``.
     entries : list of DatasetEntry
@@ -750,35 +490,4 @@ def build_expression_reader(
         else:
             return FederatedLanceReader(entries)  # type: ignore[arg-type]
 
-    elif backend == "zarr":
-        read_engine = kwargs.pop("read_engine", "zarr-python")
-        if topology == "aggregate":
-            offsets_path = kwargs.pop("offsets_path")
-            indices_path = kwargs.pop("indices_path")
-            counts_path = kwargs.pop("counts_path")
-            return AggregateZarrReader(
-                offsets_path,
-                indices_path,
-                counts_path,
-                entries,
-                read_engine=read_engine,
-            )
-        else:
-            return FederatedZarrReader(entries, read_engine=read_engine)  # type: ignore[arg-type]
-
-    raise ValueError(f"Unknown backend '{backend}'. Supported: lance, zarr.")
-
-
-# ---------------------------------------------------------------------------
-# Internal helper: np.searchsorted-based entry lookup
-# ---------------------------------------------------------------------------
-
-
-def _searchsorted_entry(stops: np.ndarray, global_index: int) -> int:
-    """Return the index into *stops* array for *global_index*.
-
-    Uses ``np.searchsorted(stops, global_index, side='right')`` which
-    returns the first stop > *global_index*, i.e., the entry whose range
-    contains *global_index* (if any).
-    """
-    return int(np.searchsorted(stops, global_index, side="right"))
+    raise ValueError(f"Unknown backend '{backend}'. Supported: lance.")
