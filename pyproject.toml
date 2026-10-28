@@ -9,15 +9,12 @@ description = "Sparse single-cell expression corpora with original metadata and 
 requires-python = ">=3.11"
 dependencies = [
     "anndata>=0.11",
-    "deprecation==2.1.0",
     "h5py>=3.10",
-    "lancedb==0.30.2",
     "numpy>=2.0",
     "pandas>=2.2",
     "polars>=1.0",
     "pyarrow>=18",
     "pylance>=0.20",
-    "zarr>=3",
     "dask[array]>=2024",
     "PyYAML>=6.0",
     "scipy>=1.14",
@@ -35,7 +32,6 @@ demo = [
     "scanpy>=1.10",
     "dask[dataframe]>=2024",
     "requests>=2.31",
-    "tqdm>=4.66",
 ]
 
 [project.urls]

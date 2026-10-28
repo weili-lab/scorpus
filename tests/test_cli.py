@@ -111,7 +111,7 @@ class TestParserConstruction:
             "--dataset-id", "ds1",
             "--inspection-summary", "/data/summary.yaml",
             "--output-corpus", "/corpus",
-            "--backend", "zarr",
+            "--backend", "lance",
         ])
         assert ns.command == "materialize"
         assert ns.mode == "create"
@@ -119,7 +119,7 @@ class TestParserConstruction:
         assert ns.dataset_id == "ds1"
         assert ns.inspection_summary == "/data/summary.yaml"
         assert ns.output_corpus == "/corpus"
-        assert ns.backend == "zarr"
+        assert ns.backend == "lance"
         assert ns.topology is None
         assert ns.dry_run is False
 
@@ -163,7 +163,7 @@ class TestParserConstruction:
             "--input-dir", "/data/h5ad/",
             "--inspection-summary-dir", "/data/reviews/",
             "--output-corpus", "/corpus",
-            "--backend", "zarr",
+            "--backend", "lance",
             "--dry-run",
         ])
         assert ns.command == "materialize"
@@ -198,7 +198,7 @@ class TestParserConstruction:
             "--dataset-id", "ds1",
             "--inspection-summary", "/data/summary.yaml",
             "--output-corpus", "/corpus",
-            "--backend", "zarr",
+            "--backend", "lance",
         ])
         assert ns.source == "/data/test.h5ad"
         assert ns.input_list == "/data/list.csv"
@@ -213,18 +213,18 @@ class TestParserConstruction:
             "--dataset-id", "ds1",
             "--inspection-summary", "/data/summary.yaml",
             "--output-corpus", "/corpus",
-            "--backend", "zarr",
+            "--backend", "lance",
         ])
         assert ns.dataset_id == "ds1"
 
     def test_corpus_validate_subcommand(self):
         parser = build_parser()
         ns = parser.parse_args(
-            ["corpus-validate", "/c.yaml", "--backend", "zarr"]
+            ["corpus-validate", "/c.yaml", "--backend", "lance"]
         )
         assert ns.command == "corpus-validate"
         assert ns.corpus_index == "/c.yaml"
-        assert ns.backend == "zarr"
+        assert ns.backend == "lance"
 
     def test_removed_backend_choice_is_rejected(self):
         parser = build_parser()
@@ -276,10 +276,6 @@ class TestEffectiveTopologyResolution:
     def test_lance_respects_requested_aggregate(self):
         assert _resolve_effective_topology("lance", "aggregate") == "aggregate"
 
-    def test_non_lance_respects_requested_topology(self):
-        assert _resolve_effective_topology("zarr", "federated") == "federated"
-        assert _resolve_effective_topology("zarr", "aggregate") == "aggregate"
-
 
 class TestMaterializeDatasetRouting:
     """Verify _materialize_dataset routes aggregate matrix_root correctly."""
@@ -327,7 +323,6 @@ class TestMaterializeDatasetRouting:
             dataset_index=1,
             global_row_start=10,
             writer_state={"prev": "state"},
-            is_last_dataset=False,
             total_datasets=2,
             dry_run=False,
         )
@@ -382,7 +377,6 @@ class TestMaterializeDatasetRouting:
             dataset_index=1,
             global_row_start=10,
             writer_state={"prev": "state"},
-            is_last_dataset=False,
             total_datasets=2,
             dry_run=False,
         )
@@ -636,7 +630,7 @@ class TestCorpusValidateCmd:
             "contract_version": "0.3.0",
             "dataset_id": "ds1",
             "route": "create_new",
-            "backend": "zarr",
+            "backend": "lance",
             "topology": "federated",
             "count_source": {"selected": ".X", "integer_only": True},
             "outputs": {
@@ -713,24 +707,6 @@ class TestCorpusComposeCmd:
         assert [d["global_end"] for d in index["datasets"]] == [2, 6]
         captured = capsys.readouterr()
         assert "corpus-compose" in captured.out
-
-    def test_compose_rejects_backend_mismatch(self, tmp_path: Path):
-        from scorpus.cli import _cmd_corpus_compose
-
-        source_a = tmp_path / "source_a"
-        source_b = tmp_path / "source_b"
-        _write_compose_input_corpus(source_a, backend="lance", datasets=(("datasetA", 2),))
-        _write_compose_input_corpus(source_b, backend="zarr", datasets=(("datasetB", 2),))
-
-        args = argparse.Namespace(
-            input_corpus=[str(source_a), str(source_b)],
-            output_corpus=str(tmp_path / "output"),
-            dataset_id=None,
-            link_mode="symlink",
-            corpus_id=None,
-        )
-        with pytest.raises(ValueError, match="backend mismatch"):
-            _cmd_corpus_compose(args)
 
     def test_compose_rejects_aggregate_corpus(self, tmp_path: Path):
         from scorpus.cli import _cmd_corpus_compose
@@ -1088,7 +1064,6 @@ class TestCanonicalizeDiscovery:
             },
             "raw_cell_meta_path": str(manifest_dir / "raw-obs.parquet"),
             "raw_feature_meta_path": str(manifest_dir / "raw-var.parquet"),
-            "size_factor_parquet_path": str(manifest_dir / "size-factor.parquet"),
         }), encoding="utf-8")
 
         # Create corpus index
@@ -1110,66 +1085,11 @@ class TestCanonicalizeDiscovery:
         }
         idx_path.write_text(yaml.safe_dump(idx_data))
 
-        raw_obs, raw_var, size_factor = _resolve_sidecars_from_corpus(
+        raw_obs, raw_var = _resolve_sidecars_from_corpus(
             "dummy_00", corpus_root
         )
         assert raw_obs == str(manifest_dir / "raw-obs.parquet")
         assert raw_var == str(manifest_dir / "raw-var.parquet")
-        assert size_factor == str(manifest_dir / "size-factor.parquet")
-
-    def test_resolve_sidecars_no_size_factor(self, tmp_path: Path):
-        from scorpus.cli import _resolve_sidecars_from_corpus
-
-        corpus_root = tmp_path / "corpus"
-        corpus_root.mkdir()
-
-        manifest_dir = corpus_root / "meta" / "dummy_00"
-        manifest_dir.mkdir(parents=True)
-        manifest_path = manifest_dir / "materialization-manifest.yaml"
-        manifest_path.write_text(yaml.safe_dump({
-            "kind": "materialization-manifest",
-            "contract_version": "0.3.0",
-            "dataset_id": "dummy_00",
-            "route": "create_new",
-            "backend": "lance",
-            "topology": "aggregate",
-            "count_source": {"selected": ".X", "integer_only": True},
-            "outputs": {
-                "metadata_root": str(manifest_dir),
-                "matrix_root": str(corpus_root / "matrix"),
-            },
-            "provenance": {
-                "source_path": "/fake.h5ad",
-                "inspection_summary_path": "/fake.yaml",
-            },
-            "raw_cell_meta_path": str(manifest_dir / "raw-obs.parquet"),
-            "raw_feature_meta_path": str(manifest_dir / "raw-var.parquet"),
-        }), encoding="utf-8")
-
-        idx_path = corpus_root / "corpus-index.yaml"
-        idx_data = {
-            "kind": "corpus-index",
-            "contract_version": "0.3.0",
-            "corpus_id": "test-v0",
-            "global_metadata": {},
-            "datasets": [{
-                "dataset_id": "dummy_00",
-                "join_mode": "create_new",
-                "manifest_path": str(manifest_path.relative_to(corpus_root)),
-                "dataset_index": 0,
-                "cell_count": 100,
-                "global_start": 0,
-                "global_end": 100,
-            }],
-        }
-        idx_path.write_text(yaml.safe_dump(idx_data))
-
-        raw_obs, raw_var, size_factor = _resolve_sidecars_from_corpus(
-            "dummy_00", corpus_root
-        )
-        assert raw_obs == str(manifest_dir / "raw-obs.parquet")
-        assert raw_var == str(manifest_dir / "raw-var.parquet")
-        assert size_factor is None
 
     def test_resolve_sidecars_raises_on_missing_corpus(self, tmp_path: Path):
         from scorpus.cli import _resolve_sidecars_from_corpus
@@ -1418,7 +1338,7 @@ class TestCanonicalizeCmd:
 
         def _fake_sidecars(dataset_id: str, corpus_root_arg: Path):
             assert dataset_id == "dummy_01"
-            return ("/fake/raw-obs.parquet", "/fake/raw-var.parquet", None)
+            return ("/fake/raw-obs.parquet", "/fake/raw-var.parquet")
 
         def _fake_run_canonicalization(**kwargs):
             return CanonicalizationResult(

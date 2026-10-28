@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import anndata as ad
-import pandas as pd
 from scipy.sparse import csr_matrix, issparse
 
 from .backends import build_backend_fn
@@ -20,9 +19,7 @@ from .metadata_writers import (
     write_feature_provenance_parquet,
     write_raw_cell_metadata_parquet,
     write_raw_feature_metadata_parquet,
-    write_size_factor_parquet,
 )
-from .streaming_stats import DatasetStreamingStats
 from .models import (
     CountSourceSpec,
     MaterializationManifest,
@@ -69,7 +66,7 @@ class DatasetMaterializer:
     dataset_id : str
         Stable dataset identifier.
     backend : str
-        Storage backend: ``lance`` (default) or ``zarr``.
+        Storage backend: only ``lance``.
     topology : str
         Corpus topology: ``federated`` (default) or ``aggregate``.
     rerun_inspection : bool, default False
@@ -104,10 +101,6 @@ class DatasetMaterializer:
         Opaque writer state carried across datasets in aggregate topology.
         The corpus-level orchestrator reads this from the previous dataset's
         materializer and passes it to the next. None on the first dataset.
-        Only meaningful for aggregate topology backends (lance, zarr).
-    _is_last_dataset : bool, default False
-        When True, signals to the aggregate backend that this is the final
-        dataset in the series, triggering backend finalization.
         Only meaningful for aggregate topology.
 
     Backend/topology separation
@@ -133,13 +126,12 @@ class DatasetMaterializer:
         dataset_index: int = 0,
         global_row_start: int = 0,
         writer_state: dict | None = None,
-        _is_last_dataset: bool = False,
     ):
         if mode not in ("create", "append"):
             raise ValueError(
                 f"mode must be 'create' or 'append', got {mode!r}"
             )
-        assert backend in {"lance", "zarr"}, f"unknown backend: {backend}"
+        assert backend == "lance", f"unknown backend: {backend}"
         assert topology in {"federated", "aggregate"}, f"unknown topology: {topology}"
         self.source_path = source_path
         self.inspection_summary_path = inspection_summary_path
@@ -156,7 +148,6 @@ class DatasetMaterializer:
         self.dataset_index = dataset_index
         self.global_row_start = global_row_start
         self.writer_state = writer_state
-        self._is_last_dataset = _is_last_dataset
         if register and corpus_index_path is None:
             raise ValueError(
                 "register=True requires corpus_index_path to be set; "
@@ -254,13 +245,9 @@ class DatasetMaterializer:
                 source_path=str(source_h5ad),
             )
 
-            # Size-factor inputs are accumulated during the chunk loop.
-            # Size-factor inputs are accumulated during the chunk loop; global
-            # size factors are computed from all row_sums and written after it.
-            backend_paths, size_factor_parquet_path = self._write_cells(
+            backend_paths = self._write_cells(
                 count_matrix=count_matrix,
                 matrix_root=matrix_root,
-                cell_ids=filtered_obs.index,
                 needs_recovery=count_source.uses_recovery,
             )
             self._assert_backend_outputs_exist(backend_paths)
@@ -287,7 +274,6 @@ class DatasetMaterializer:
                 raw_cell_meta_path=self._manifest_artifact_path(raw_cell_meta_parquet_path),
                 raw_feature_meta_path=self._manifest_artifact_path(raw_feature_meta_parquet_path),
                 provenance_spec_path=self._manifest_artifact_path(provenance_spec_path),
-                size_factor_parquet_path=self._manifest_artifact_path(size_factor_parquet_path),
                 integer_verified=True,
                 cell_count=n_obs,
                 feature_count=n_vars,
@@ -379,14 +365,9 @@ class DatasetMaterializer:
         count_matrix: Any,
         matrix_root: Path,
         *,
-        cell_ids: pd.Index,
         needs_recovery: bool = False,
-    ) -> tuple[dict[str, Path], Path]:
-        """Write sparse cell data using the configured backend and topology.
-
-        Size-factor inputs are accumulated during the chunk loop; global size
-        factors are computed after it.
-        """
+    ) -> dict[str, Path]:
+        """Write sparse cell data using the configured backend and topology."""
         from .chunk_translation import _translate_chunk
 
         backend_fn = build_backend_fn(self.backend, self.topology)
@@ -397,16 +378,12 @@ class DatasetMaterializer:
         )
 
         all_paths: dict[str, Path] = {}
-        stats = DatasetStreamingStats()
 
         for chunk_start in range(0, n_obs, self.chunk_rows):
             chunk_end = min(chunk_start + self.chunk_rows, n_obs)
-            is_last_dataset = (
-                self._is_last_dataset if self.topology == "aggregate" else True
-            )
             # Lance commits each dataset as one streamed append, so its output
-            # exists for the check after this loop; zarr stays open across datasets.
-            is_last_chunk = (chunk_end == n_obs) and (is_last_dataset or self.backend == "lance")
+            # exists for the check after this loop.
+            is_last_chunk = chunk_end == n_obs
             matrix_chunk = _slice_matrix_chunk_as_csr(count_matrix, chunk_start, chunk_end)
             bundle = _translate_chunk(
                 dataset_id=self.dataset_id,
@@ -415,8 +392,6 @@ class DatasetMaterializer:
                 chunk_start=chunk_start,
                 needs_recovery=needs_recovery,
             )
-
-            stats.update(bundle)
 
             paths, writer_state = backend_fn(
                 bundle=bundle,
@@ -430,10 +405,4 @@ class DatasetMaterializer:
         if self.topology == "aggregate":
             self.writer_state = writer_state
 
-        size_factor_parquet_path = write_size_factor_parquet(
-            size_factors=stats.size_factors(),
-            cell_ids=cell_ids,
-            meta_root=Path(self.output_roots.metadata_root),
-        )
-
-        return (all_paths, size_factor_parquet_path)
+        return all_paths

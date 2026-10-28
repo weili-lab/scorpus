@@ -1,4 +1,4 @@
-"""Phase 2 tests: count recovery and feature identity logic.
+"""Count recovery and feature identity logic.
 
 Tests cover:
 - Reverse-normalization recovery via expm1/size_factor path
@@ -7,7 +7,7 @@ Tests cover:
 - Largest-passing-source selection with direct-vs-recovered tie-breaking
 - Source-order tie-breaking when size and pass mode are equal
 
-New contract (Phase 2):
+Contract:
 - Every source receives both direct integer check and reverse-normalized check
 - Recovery is judged from recovered values, not layer/source names
 - Among passing sources, largest feature dimension wins

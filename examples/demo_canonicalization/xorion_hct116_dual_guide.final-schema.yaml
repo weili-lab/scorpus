@@ -72,9 +72,6 @@ obs_column_mappings:
 - canonical_name: sex
   strategy: literal
   literal_value: unknown
-- canonical_name: size_factor
-  strategy: source-field
-  source_column: size_factor
 - canonical_name: species
   strategy: literal
   literal_value: human

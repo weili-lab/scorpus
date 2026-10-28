@@ -61,16 +61,6 @@ def _make_raw_var_parquet(path: Path, feature_ids: list[str]) -> None:
     pq.write_table(table, path)
 
 
-def _make_size_factor_parquet(path: Path, cell_ids: list[str], size_factors: list[float]) -> None:
-    """Write a minimal size-factor.parquet."""
-    table = pa.table({
-        "cell_id": pa.array(cell_ids, type=pa.string()),
-        "size_factor": pa.array(size_factors, type=pa.float64()),
-    })
-    path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(table, path)
-
-
 def _make_minimal_schema(path: Path, dataset_id: str = "test") -> CanonicalizationSchema:
     """Create and write a minimal canonicalization schema covering all must-have fields."""
     # Fields that read from raw data
@@ -84,7 +74,6 @@ def _make_minimal_schema(path: Path, dataset_id: str = "test") -> Canonicalizati
         "condition": "genotype",
         "batch_id": "batch",
         "donor_id": "donor_id",
-        "size_factor": "size_factor",
     }
     # Fields that use a literal value
     _LITERAL_FIELDS = {
@@ -191,14 +180,12 @@ def _run_with_custom_obs_mapping(
 ) -> CanonicalizationResult:
     raw_obs = tmp_path / "raw-obs.parquet"
     raw_var = tmp_path / "raw-var.parquet"
-    sf_path = tmp_path / "size-factor.parquet"
     schema_path = tmp_path / "canonicalization-schema.yaml"
     out_root = tmp_path / "output"
 
     cell_ids = [row.get("cell_id", f"cell_{index}") for index, row in enumerate(rows)]
     _make_raw_obs_parquet(raw_obs, rows)
     _make_raw_var_parquet(raw_var, ["gene1", "gene2"])
-    _make_size_factor_parquet(sf_path, cell_ids, [1.0] * len(rows))
     base_schema = _make_minimal_schema(schema_path)
     schema = _replace_obs_mapping(base_schema, mapping)
     schema.write_yaml(schema_path)
@@ -206,7 +193,6 @@ def _run_with_custom_obs_mapping(
     runner = CanonicalizationRunner(
         raw_obs_path=raw_obs,
         raw_var_path=raw_var,
-        size_factor_path=sf_path,
         schema_path=schema_path,
         output_root=out_root,
     )
@@ -557,7 +543,6 @@ class TestCanonicalizationRunner:
         """Runner produces canonical obs with all must-have columns."""
         raw_obs = tmp_path / "raw-obs.parquet"
         raw_var = tmp_path / "raw-var.parquet"
-        sf_path = tmp_path / "size-factor.parquet"
         schema_path = tmp_path / "canonicalization-schema.yaml"
         out_root = tmp_path / "output"
 
@@ -570,13 +555,11 @@ class TestCanonicalizationRunner:
              "batch": "Batch_2", "donor_id": "D002", "passage": 5, "n_features": 1200},
         ])
         _make_raw_var_parquet(raw_var, ["gene1", "gene2", "gene3"])
-        _make_size_factor_parquet(sf_path, ["cell_0", "cell_1"], [0.95, 1.05])
         _make_minimal_schema(schema_path, dataset_id="test")
 
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -592,7 +575,6 @@ class TestCanonicalizationRunner:
         assert obs.schema.field("global_row_index").type == pa.int64()
         assert obs.schema.field("dataset_index").type == pa.int32()
         assert obs.schema.field("local_row_index").type == pa.int64()
-        assert obs.schema.field("size_factor").type == pa.float64()
 
         # Check specific values
         assert obs.column("cell_id")[0].as_py() == "cell_0"
@@ -617,9 +599,6 @@ class TestCanonicalizationRunner:
         assert obs.column("local_row_index")[0].as_py() == 0
         assert obs.column("global_row_index")[1].as_py() == 1
 
-        # Size factors
-        assert obs.column("size_factor")[0].as_py() == pytest.approx(0.95)
-
         # No warnings
         assert result.warnings == ()
 
@@ -627,7 +606,6 @@ class TestCanonicalizationRunner:
         """Runner produces canonical var with identity gene mapping."""
         raw_obs = tmp_path / "raw-obs.parquet"
         raw_var = tmp_path / "raw-var.parquet"
-        sf_path = tmp_path / "size-factor.parquet"
         schema_path = tmp_path / "canonicalization-schema.yaml"
         out_root = tmp_path / "output"
 
@@ -637,13 +615,11 @@ class TestCanonicalizationRunner:
              "batch": "Batch_1", "donor_id": "D001"},
         ])
         _make_raw_var_parquet(raw_var, ["geneA", "geneB", "geneC"])
-        _make_size_factor_parquet(sf_path, ["cell_0"], [1.0])
         _make_minimal_schema(schema_path)
 
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -678,13 +654,10 @@ class TestCanonicalizationRunner:
         ])
         _make_raw_var_parquet(raw_var, ["geneX"])
         _make_minimal_schema(schema_path)
-        sf_path = tmp_path / "size-factor.parquet"
-        _make_size_factor_parquet(sf_path, ["c1"], [1.0])
 
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -720,13 +693,10 @@ class TestCanonicalizationRunner:
 
         _make_raw_obs_parquet(raw_obs, [{"cell_id": "c1"}])
         _make_raw_var_parquet(raw_var, ["g1"])
-        sf_path = tmp_path / "size-factor.parquet"
-        _make_size_factor_parquet(sf_path, ["c1"], [1.0])
 
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -746,8 +716,6 @@ class TestCanonicalizationRunner:
              "batch": "B1", "donor_id": "D1", "extra_col": "value1"},
         ])
         _make_raw_var_parquet(raw_var, ["geneX"])
-        sf_path = tmp_path / "size-factor.parquet"
-        _make_size_factor_parquet(sf_path, ["c1"], [1.0])
 
         base = _make_minimal_schema(schema_path)
         # Re-create with extensible
@@ -766,7 +734,6 @@ class TestCanonicalizationRunner:
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -881,7 +848,6 @@ class TestMultiColumnStrategies:
     def test_missing_multi_column_source_raises_actionable_error(self, tmp_path: Path):
         raw_obs = tmp_path / "raw-obs.parquet"
         raw_var = tmp_path / "raw-var.parquet"
-        sf_path = tmp_path / "size-factor.parquet"
         schema_path = tmp_path / "canonicalization-schema.yaml"
         out_root = tmp_path / "output"
 
@@ -889,7 +855,6 @@ class TestMultiColumnStrategies:
             {"cell_id": "c1", "guide_1": "TP53", "treatment": "Drug_A", "cell_type": "B", "cellline": "CL1", "genotype": "WT", "batch": "B1", "donor_id": "D1"},
         ])
         _make_raw_var_parquet(raw_var, ["gene1"])
-        _make_size_factor_parquet(sf_path, ["c1"], [1.0])
 
         base_schema = _make_minimal_schema(schema_path)
         schema = _replace_obs_mapping(
@@ -906,7 +871,6 @@ class TestMultiColumnStrategies:
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -942,14 +906,11 @@ class TestVocabBuilding:
              "batch": "B1", "donor_id": "D1"},
         ])
         _make_raw_var_parquet(raw_var, ["geneA", "geneB", "geneC"])
-        sf_path = tmp_path / "size-factor.parquet"
-        _make_size_factor_parquet(sf_path, ["c1", "c2", "c3"], [1.0, 1.0, 1.0])
         _make_minimal_schema(schema_path)
 
         runner = CanonicalizationRunner(
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )
@@ -1011,7 +972,6 @@ class TestRunCanonicalization:
         """run_canonicalization is equivalent to constructing and running."""
         raw_obs = tmp_path / "raw-obs.parquet"
         raw_var = tmp_path / "raw-var.parquet"
-        sf_path = tmp_path / "size-factor.parquet"
         schema_path = tmp_path / "canonicalization-schema.yaml"
         out_root = tmp_path / "output"
 
@@ -1021,14 +981,12 @@ class TestRunCanonicalization:
              "batch": "B1", "donor_id": "D1"},
         ])
         _make_raw_var_parquet(raw_var, ["geneX"])
-        _make_size_factor_parquet(sf_path, ["c1"], [1.0])
         _make_minimal_schema(schema_path)
 
         result = run_canonicalization(
             dataset_id="test",
             raw_obs_path=raw_obs,
             raw_var_path=raw_var,
-            size_factor_path=sf_path,
             schema_path=schema_path,
             output_root=out_root,
         )

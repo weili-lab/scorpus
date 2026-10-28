@@ -62,7 +62,7 @@ def update_corpus_index(
             raise ValueError("backend is required when creating a corpus index")
         if topology is None:
             raise ValueError("topology is required when creating a corpus index")
-        if backend not in {"lance", "zarr"}:
+        if backend != "lance":
             raise ValueError(f"unknown backend: {backend}")
         if topology not in {"federated", "aggregate"}:
             raise ValueError(f"unknown topology: {topology}")

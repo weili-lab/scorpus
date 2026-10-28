@@ -43,7 +43,7 @@ def test_dataset_materializer_rejects_obs_filter_before_writing_outputs(
             matrix_root=str(matrix_root),
         ),
         dataset_id="needs_prefilter",
-        backend="zarr",
+        backend="lance",
         topology="federated",
     )
 
@@ -51,8 +51,7 @@ def test_dataset_materializer_rejects_obs_filter_before_writing_outputs(
         materializer.materialize()
 
     assert not (meta_root / "raw-obs.parquet").exists()
-    assert not (meta_root / "size-factor.parquet").exists()
-    assert not (matrix_root / "needs_prefilter-row-offsets.zarr").exists()
+    assert not (matrix_root / "needs_prefilter.lance").exists()
 
 
 def _build_inspection_summary(

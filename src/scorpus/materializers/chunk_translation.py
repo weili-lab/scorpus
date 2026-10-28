@@ -1,9 +1,8 @@
 """Shared sparse chunk translation for backend writers.
 
 The materializer slices the selected count matrix into CSR chunks, then this module
-normalizes each chunk into raw sparse buffers. Lance and Zarr writers decide how to
-persist those buffers; Zarr writes them directly, while Lance builds Arrow tables in
-the Lance backend only.
+normalizes each chunk into raw sparse buffers, which the Lance writer turns into
+Arrow tables.
 """
 
 from __future__ import annotations
@@ -27,15 +26,10 @@ class ChunkBundle:
     global_row_index : np.ndarray
         Corpus-global row indices for this chunk.
     row_sums : np.ndarray
-        Raw (un-normalized) per-cell row sums (float64). These are computed inside
-        ``_translate_chunk()`` and accumulated by the caller across all chunks. After
-        the chunk loop, the caller computes the global median of all accumulated row
-        sums and produces globally-normalized size factors (``row_sum / global_median``).
-        Size factors are written to a separate Parquet sidecar — no backend writer
-        receives or embeds them.
+        Raw per-cell row sums (float64); conversion stores them as the
+        ``scorpus_total_counts`` obs column.
     indptr : np.ndarray
-        CSR indptr array for this chunk. Int64, length ``n_rows + 1``. Raw buffer
-        available for backends that need flat-buffer access (Zarr).
+        CSR indptr array for this chunk. Int64, length ``n_rows + 1``.
     indices : np.ndarray
         **Dataset-local** gene indices (int32) for all non-zero entries in this chunk.
         Raw buffer for backends that need it. These indices are in the original

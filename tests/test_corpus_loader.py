@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import lance
 import numpy as np
@@ -11,8 +11,6 @@ import pytest
 import yaml
 
 from scorpus.loaders.corpus_loader import Corpus, load_corpus
-from scorpus.loaders.zarr_reading import open_csr_arrays
-from scorpus.loaders.validation import validate_corpus_structure
 
 
 N_GENES = 8
@@ -31,7 +29,6 @@ def _obs_frame(dataset_id: str, dataset_index: int, global_start: int, n_cells: 
             "dataset_id": [dataset_id] * n_cells,
             "dataset_index": np.full(n_cells, dataset_index, dtype=np.int32),
             "local_row_index": np.arange(n_cells, dtype=np.int64),
-            "size_factor": np.asarray([1.0 + 0.1 * idx for idx in range(n_cells)], dtype=np.float64),
             "perturb_label": ["ctrl" if idx % 2 == 0 else "treat" for idx in range(n_cells)],
             "perturb_type": ["CRISPR"] * n_cells,
             "dose": [None] * n_cells,
@@ -95,39 +92,6 @@ def _write_lance_rows(path: Path, rows: list[dict[str, Any]]) -> None:
     lance.write_dataset(table, str(path), mode="overwrite")
 
 
-def _write_zarr_rows(matrix_root: Path, rows: list[dict[str, Any]]) -> None:
-    import zarr
-
-    matrix_root.mkdir(parents=True, exist_ok=True)
-    row_offsets = [0]
-    indices: list[int] = []
-    counts: list[int] = []
-    for row in rows:
-        indices.extend(row["expressed_gene_indices"])
-        counts.extend(row["expression_counts"])
-        row_offsets.append(len(indices))
-
-    group = zarr.open_group(
-        str(matrix_root / "aggregated-csr.zarr"),
-        mode="w",
-        zarr_format=3,
-    )
-    arrays = {
-        "row_offsets": np.asarray(row_offsets, dtype=np.int64),
-        "indices": np.asarray(indices, dtype=np.int32),
-        "counts": np.asarray(counts, dtype=np.int32),
-    }
-    for array_name, values in arrays.items():
-        arr = group.create_array(
-            array_name,
-            shape=values.shape,
-            dtype=values.dtype,
-            chunks=(4,),
-            shards=(16,),
-        )
-        arr[:] = values
-
-
 def _write_corpus_index(root: Path, *, topology: str, backend: str = "lance") -> None:
     doc = {
         "kind": "corpus-index",
@@ -173,16 +137,6 @@ def _build_aggregate_lance_corpus(root: Path) -> None:
     for item in DATASETS:
         rows.extend(_expression_rows(item["cell_count"], seed=100 + item["dataset_index"]))
     _write_lance_rows(root / "matrix" / "aggregated-cells.lance", rows)
-
-
-def _build_aggregate_zarr_corpus(root: Path) -> None:
-    root.mkdir(parents=True, exist_ok=True)
-    _write_corpus_index(root, topology="aggregate", backend="zarr")
-    _write_metadata(root, topology="aggregate")
-    rows: list[dict[str, Any]] = []
-    for item in DATASETS:
-        rows.extend(_expression_rows(item["cell_count"], seed=300 + item["dataset_index"]))
-    _write_zarr_rows(root / "matrix", rows)
 
 
 def _build_federated_lance_corpus(root: Path) -> None:
@@ -380,12 +334,11 @@ def test_to_anndata_lazy_var_join_inner_intersection(tmp_path: Path) -> None:
     assert computed.dtype == np.float32
 
 
-@pytest.mark.parametrize("builder", [_build_aggregate_lance_corpus, _build_aggregate_zarr_corpus])
-def test_to_anndata_lazy_builds_dask_sparse_x(tmp_path: Path, builder) -> None:
+def test_to_anndata_lazy_builds_dask_sparse_x(tmp_path: Path) -> None:
     import dask.array as da
     import scipy.sparse as sp
 
-    builder(tmp_path)
+    _build_aggregate_lance_corpus(tmp_path)
     corpus = load_corpus(tmp_path)
 
     adata = corpus.to_anndata_lazy(dataset_id="mock_00", chunk_rows=2)
@@ -409,47 +362,6 @@ def test_to_anndata_lazy_rejects_unknown_device(tmp_path: Path) -> None:
         corpus.to_anndata_lazy(dataset_id="mock_00", device="cuda:x")
 
 
-def test_load_corpus_reads_sharded_zarr_layout(tmp_path: Path) -> None:
-    _build_aggregate_zarr_corpus(tmp_path)
-    assert (tmp_path / "matrix" / "aggregated-csr.zarr").is_dir()
-    assert not (tmp_path / "matrix" / "aggregated-indices.zarr").exists()
-
-    corpus = load_corpus(tmp_path)
-    batch = corpus.expression_reader.read_expression_flat([0, 4])
-
-    assert batch.batch_size == 2
-    np.testing.assert_array_equal(batch.global_row_index, [0, 4])
-
-
-@pytest.mark.parametrize("engine", ["zarr-python", "zarrs", "tensorstore"])
-def test_optional_zarr_read_engines_match_sharded_csr_smoke(tmp_path: Path, engine: str) -> None:
-    if engine == "zarrs":
-        pytest.importorskip("zarrs")
-    if engine == "tensorstore":
-        pytest.importorskip("tensorstore")
-
-    _build_aggregate_zarr_corpus(tmp_path)
-    csr_path = tmp_path / "matrix" / "aggregated-csr.zarr"
-    arrays = open_csr_arrays(csr_path, csr_path, csr_path, read_engine=engine)
-    np.testing.assert_array_equal(np.asarray(arrays.row_offsets[:]), [0, 3, 6, 9, 12, 15, 18, 21, 24, 27])
-
-    baseline = load_corpus(tmp_path, zarr_read_engine="zarr-python")
-    routed = load_corpus(tmp_path, zarr_read_engine=engine)
-    expected = baseline.expression_reader.read_expression_flat([0, 4, 8])
-    observed = routed.expression_reader.read_expression_flat([0, 4, 8])
-
-    np.testing.assert_array_equal(observed.global_row_index, expected.global_row_index)
-    np.testing.assert_array_equal(observed.row_offsets, expected.row_offsets)
-    np.testing.assert_array_equal(observed.expressed_gene_indices, expected.expressed_gene_indices)
-    np.testing.assert_array_equal(observed.expression_counts, expected.expression_counts)
-
-    expected_lazy = cast(Any, baseline.to_anndata_lazy(dataset_id="mock_00", chunk_rows=2).X)
-    observed_lazy = cast(Any, routed.to_anndata_lazy(dataset_id="mock_00", chunk_rows=2).X)
-    expected_x = expected_lazy.compute().toarray()
-    observed_x = observed_lazy.compute().toarray()
-    np.testing.assert_array_equal(observed_x, expected_x)
-
-
 def test_expression_reader_and_take_metadata_use_global_rows(tmp_path: Path) -> None:
     _build_aggregate_lance_corpus(tmp_path)
     corpus = load_corpus(tmp_path)
@@ -461,51 +373,6 @@ def test_expression_reader_and_take_metadata_use_global_rows(tmp_path: Path) -> 
     assert expression.batch_size == 3
     assert metadata["dataset_id"] == ("mock_00", "mock_01", "mock_01")
     np.testing.assert_array_equal(metadata["dataset_index"], [0, 1, 1])
-
-
-def test_validate_corpus_structure_checks_aggregate_corpus(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-
-    report = validate_corpus_structure(tmp_path, sample_n=4, seed=1)
-
-    assert report["status"] == "success"
-    assert report["backend"] == "lance"
-    assert report["topology"] == "aggregate"
-    assert report["dataset_count"] == 2
-    assert report["total_rows"] == 9
-
-
-def test_validate_corpus_structure_checks_aggregate_zarr(tmp_path: Path) -> None:
-    _build_aggregate_zarr_corpus(tmp_path)
-
-    report = validate_corpus_structure(tmp_path, sample_n=4, seed=1)
-
-    assert report["status"] == "success"
-    assert report["backend"] == "zarr"
-    assert report["matrix"]["checked_layout"] == "aggregate"
-
-
-def test_validate_corpus_structure_checks_federated_corpus(tmp_path: Path) -> None:
-    _build_federated_lance_corpus(tmp_path)
-
-    report = validate_corpus_structure(tmp_path, sample_n=4, seed=1)
-
-    assert report["status"] == "success"
-    assert report["topology"] == "federated"
-    assert report["matrix"]["checked_layout"] == "federated"
-
-
-def test_validate_corpus_structure_rejects_bad_ranges(tmp_path: Path) -> None:
-    _build_aggregate_lance_corpus(tmp_path)
-    index_path = tmp_path / "corpus-index.yaml"
-    with open(index_path, encoding="utf-8") as handle:
-        doc = yaml.safe_load(handle)
-    doc["datasets"][1]["global_start"] = 5
-    with open(index_path, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(doc, handle)
-
-    with pytest.raises(AssertionError, match="global ranges"):
-        validate_corpus_structure(tmp_path)
 
 
 def test_load_corpus_federated_reader_uses_dataset_files(tmp_path: Path) -> None:

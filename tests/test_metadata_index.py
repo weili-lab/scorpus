@@ -16,7 +16,7 @@ def _meta() -> MetadataIndex:
                 "dataset_id": ["ds0", "ds0", "ds1", "ds1", "ds1"],
                 "dataset_index": np.asarray([0, 0, 1, 1, 1], dtype=np.int32),
                 "local_row_index": np.asarray([0, 1, 0, 1, 2], dtype=np.int64),
-                "size_factor": np.asarray([1.0, 1.1, 0.9, 1.2, 1.3], dtype=np.float64),
+                "scorpus_total_counts": np.asarray([1.0, 1.1, 0.9, 1.2, 1.3], dtype=np.float64),
                 "perturb_label": ["ctrl", "gene_a", "ctrl", "gene_b", None],
             }
         )
@@ -36,11 +36,11 @@ def test_rejects_nested_columns() -> None:
 
 def test_take_preserves_order_and_types() -> None:
     meta = _meta()
-    taken = meta.take([3, 1, 4], columns=("global_row_index", "dataset_id", "size_factor"))
+    taken = meta.take([3, 1, 4], columns=("global_row_index", "dataset_id", "scorpus_total_counts"))
 
     np.testing.assert_array_equal(taken["global_row_index"], np.asarray([3, 1, 4]))
     assert taken["dataset_id"] == ("ds1", "ds0", "ds1")
-    np.testing.assert_allclose(taken["size_factor"], np.asarray([1.2, 1.1, 1.3]))
+    np.testing.assert_allclose(taken["scorpus_total_counts"], np.asarray([1.2, 1.1, 1.3]))
 
 
 def test_take_defaults_to_all_columns() -> None:

@@ -78,7 +78,7 @@ This writes:
 - `artifacts/demo_corpus/corpus-index.yaml` — corpus registration
 - `artifacts/demo_corpus/global-metadata.yaml` — global metadata
 - `artifacts/demo_corpus/marson_d2_rest/matrix/` — sparse Lance count table
-- `artifacts/demo_corpus/marson_d2_rest/meta/` — raw obs/var, size factors, HVG
+- `artifacts/demo_corpus/marson_d2_rest/meta/` — raw obs/var sidecars and the materialization manifest
 
 ## Step 3 — Append the second dataset
 

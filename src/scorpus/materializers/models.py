@@ -94,7 +94,7 @@ class MaterializationManifest(YamlDocument):
     contract_version: str
     dataset_id: str
     route: str  # create_new | append_routed
-    backend: str  # lance | zarr
+    backend: str  # lance
     topology: str  # federated | aggregate
     count_source: CountSourceSpec
     outputs: OutputRoots
@@ -102,7 +102,6 @@ class MaterializationManifest(YamlDocument):
     raw_cell_meta_path: str | None = None  # raw-obs.parquet
     raw_feature_meta_path: str | None = None  # raw-var.parquet
     provenance_spec_path: str | None = None  # feature-order/provenance artifact
-    size_factor_parquet_path: str | None = None  # Parquet: per-cell size factors (separate from cells parquet)
     integer_verified: bool = False
     cell_count: int = 0  # number of cells materialized (set by materialize() for corpus index use)
     feature_count: int = 0  # number of features in dataset-local feature space
@@ -115,7 +114,7 @@ class MaterializationManifest(YamlDocument):
             raise ValueError("materialization manifest contract version mismatch")
         if self.route not in {"create_new", "append_routed"}:
             raise ValueError(f"invalid route: {self.route}")
-        if self.backend not in {"zarr", "lance"}:
+        if self.backend != "lance":
             raise ValueError(f"invalid backend: {self.backend}")
         if self.topology not in {"federated", "aggregate"}:
             raise ValueError(f"invalid topology: {self.topology}")
@@ -135,7 +134,6 @@ class MaterializationManifest(YamlDocument):
             raw_cell_meta_path=data.get("raw_cell_meta_path"),
             raw_feature_meta_path=data.get("raw_feature_meta_path"),
             provenance_spec_path=data.get("provenance_spec_path"),
-            size_factor_parquet_path=data.get("size_factor_parquet_path"),
             integer_verified=data.get("integer_verified", False),
             cell_count=data.get("cell_count", 0),
             feature_count=data.get("feature_count", 0),

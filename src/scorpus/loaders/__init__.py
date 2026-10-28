@@ -2,17 +2,13 @@
 
 from .expression import (
     AggregateLanceReader,
-    AggregateZarrReader,
     BaseExpressionReader,
     DatasetEntry,
     ExpressionReader,
     FederatedLanceReader,
-    FederatedZarrReader,
     LanceDatasetEntry,
-    ZarrDatasetEntry,
     build_expression_reader,
 )
-from .zarr_reading import ZARR_READ_ENGINES, normalize_zarr_read_engine, open_csr_arrays
 from .index import MetadataIndex
 from .expression import ExpressionBatch
 from .feature_registry import (
@@ -35,14 +31,8 @@ __all__ = [
     "DatasetEntry",
     "AggregateLanceReader",
     "FederatedLanceReader",
-    "AggregateZarrReader",
-    "FederatedZarrReader",
     "LanceDatasetEntry",
-    "ZarrDatasetEntry",
     "build_expression_reader",
-    "ZARR_READ_ENGINES",
-    "normalize_zarr_read_engine",
-    "open_csr_arrays",
     # Phase 3 — Core types
     "ExpressionBatch",
     "dense_counts",

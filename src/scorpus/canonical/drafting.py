@@ -78,10 +78,6 @@ _CANONICAL_OBS_ALIASES: dict[str, tuple[str, ...]] = {
         "moa", "treatment_type", "intervention",
     ),
     "sex": ("sex", "gender", "biological_sex"),
-    "size_factor": (
-        "size_factor", "size_factors", "sf", "norm_factor",
-        "library_size", "total_counts",
-    ),
     "species": ("species", "organism", "source_organism"),
     "timepoint": (
         "timepoint", "time", "treatment_time", "exposure_time",
@@ -824,14 +820,6 @@ def _draft_obs_mapping(
             canonical_name=canonical_name,
             strategy="literal",
             literal_value=str(literal_value),
-        )
-
-    # Size factor is always source-field (numeric, handled by runner)
-    if canonical_name == "size_factor":
-        return ObsColumnMapping(
-            canonical_name=canonical_name,
-            strategy="source-field",
-            source_column="size_factor",
         )
 
     # Special case: cell_id — passthrough from raw (always present per contract)

@@ -14,7 +14,7 @@ publishing corpora with audited, harmonized metadata.
 
 - A **dataset** is one source `.h5ad` plus its materialized matrix, raw metadata sidecars, canonical metadata, and manifest.
 - A **corpus** is a collection of datasets registered in one `corpus-index.yaml`.
-- A **backend** is the physical matrix format. Current maintained choices are `lance` and `zarr`.
+- A **backend** is the physical matrix format. The only backend is `lance`.
 - A **topology** is how datasets are organized. Current choices are `aggregate` and `federated`.
 - **Raw sidecars** preserve what the source dataset contained.
 - **Canonical sidecars** are reviewed, loader-ready views of obs/var metadata.
@@ -24,7 +24,7 @@ publishing corpora with audited, harmonized metadata.
 Backend and topology are separate axes:
 
 ```text
-backend:  lance | zarr
+backend:  lance
 topology: aggregate | federated
 ```
 
@@ -103,7 +103,6 @@ The materializer:
 - streams the matrix in row chunks
 - writes sparse count data through the selected backend and topology
 - writes raw obs and raw var sidecars
-- writes size factors and per-dataset HVG rankings
 - writes a per-dataset `materialization-manifest.yaml`
 - registers the dataset in `corpus-index.yaml`
 
@@ -118,7 +117,6 @@ Important materialization artifacts:
 - `materialization-manifest.yaml`: per-dataset source, output, count-source, and QA metadata
 - `raw-obs.parquet`: raw obs metadata plus stable row identity fields
 - `raw-var.parquet`: raw var metadata plus `origin_index`
-- `size-factor.parquet`: per-cell size factors
 
 Materialization does not apply cell filtering. If a dataset should be filtered,
 create a pre-filtered `.h5ad` first and inspect/materialize that file.
@@ -154,7 +152,6 @@ It reads:
 
 - `raw-obs.parquet`
 - `raw-var.parquet`
-- `size-factor.parquet` when present
 - `final-schema.yaml`
 
 It writes:
@@ -164,7 +161,7 @@ It writes:
 
 `canonical-obs.parquet` contains required loader metadata such as
 `dataset_id`, `dataset_index`, `global_row_index`, `local_row_index`,
-`perturb_label`, `cell_context`, and `size_factor`.
+`perturb_label`, and `cell_context`.
 
 `canonical-var.parquet` contains at least:
 
@@ -185,7 +182,7 @@ feature metadata, and backend matrix artifacts.
 
 It builds:
 
-- an expression reader for aggregate or federated Lance/Zarr
+- an expression reader for aggregate or federated Lance
 - a `MetadataIndex` from `canonical-obs.parquet`
 - a `FeatureRegistry` from `canonical-var.parquet`; for older materialized corpora it still reads an existing `hvg.parquet` (new materializations no longer write one; HVGs come from `ex_var`)
 - a `Corpus` object that exposes public loading and inspection methods
@@ -247,4 +244,4 @@ internals.
 - The curated loader requires canonical metadata; direct conversion does not infer a final biological schema.
 - Feature identity is dataset-local at materialization time and corpus-global at load time.
 - The repo does not aim to replace Scanpy/RAPIDS for full exploratory preprocessing.
-- Current mainline docs describe Lance/Zarr only; direct conversion currently writes standalone Lance corpora.
+- Lance is the only matrix backend; direct conversion writes standalone Lance corpora.

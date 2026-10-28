@@ -253,8 +253,7 @@ corpus/
         ├── dataset-summary.yaml
         ├── materialization-manifest.yaml
         ├── raw-obs.parquet
-        ├── raw-var.parquet
-        └── size-factor.parquet
+        └── raw-var.parquet
 ```
 
 Federated topology:
@@ -269,8 +268,7 @@ corpus/
         ├── dataset-summary.yaml
         ├── materialization-manifest.yaml
         ├── raw-obs.parquet
-        ├── raw-var.parquet
-        └── size-factor.parquet
+        └── raw-var.parquet
 ```
 
 ## Validation After Materialization
@@ -288,7 +286,7 @@ Manual checks:
 - each dataset has `materialization-manifest.yaml`
 - each manifest has `integer_verified: true`
 - each manifest records the expected `backend` and `topology`
-- `raw-obs.parquet`, `raw-var.parquet`, and `size-factor.parquet` exist
+- `raw-obs.parquet` and `raw-var.parquet` exist
 
 After this, continue with `canonicalization_handbook.md`.
 
