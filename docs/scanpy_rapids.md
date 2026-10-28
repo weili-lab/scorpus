@@ -40,7 +40,7 @@ print(type(adata_marson.X))
 ```
 
 `adata_marson.X` stays Dask-backed, so the count matrix is still read in chunks
-of `chunk_rows` cells (default 65,536; lower it if memory runs short).
+of `chunk_rows` cells (default 8,192; lower it if memory runs short).
 
 ## Cross-dataset lazy AnnData with native gene axes
 
@@ -153,8 +153,25 @@ chunks), and so does `highly_variable_genes(flavor="seurat_v3")` unless you pass
 
 Each Dask chunk is built in memory before it is used, and Dask works on several
 chunks at once (one per thread). Budget about `chunk_rows` x threads x 3 times the
-size of one chunk's CSR matrix (the read buffers plus one copy of the matrix). If
+size of one chunk's CSR matrix (the read buffers plus one copy of the matrix);
+normalising and log-transforming add about two more copies while a chunk is in flight. If
 memory runs short, lower `chunk_rows`.
+
+On a 1.23M-cell corpus (about 3,500 nonzeros per cell; 16 cores, 200 GB RAM, 48 GB
+L40S GPU) a fixed QC, HVG, t-test, PCA and pseudobulk pipeline gave (median of 3 runs):
+
+| `chunk_rows` | CPU (scanpy) time | CPU peak RAM | GPU (rapids) time | GPU host RAM | GPU memory |
+|---|---|---|---|---|---|
+| 4,096 | 168 s | 18 GB | 86 s | 13 GB | 4 GB |
+| 8,192 (default) | 162 s | 27 GB | 71 s | 23 GB | 7.5 GB |
+| 16,384 | 160 s | 46 GB | 68 s | 42 GB | 14 GB |
+| 32,768 | 168 s | 84 GB | 73 s | 75 GB | 25 GB |
+| 65,536 | 223 s | 159 GB | out of GPU memory | - | > 44 GB |
+
+Peak CPU RAM was about 8 GB plus 2.4 GB per 1,000 chunk rows. Very small chunks
+slow the GPU (more per-chunk overhead); very large ones leave cores idle and, near
+the RAM limit, push the corpus out of the page cache (the 65,536-row CPU runs
+re-read 23-83 GB from disk).
 
 If your environment does not provide CUDA or `rapids_singlecell`, treat this as
 an optional extension and record the blocker explicitly.

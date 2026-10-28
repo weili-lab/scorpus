@@ -11,7 +11,7 @@ import polars as pl
 import yaml
 from scipy import sparse
 
-from .corpus_loader import Corpus, _cupy_device_id, _lazy_sparse_meta, ex_path
+from .corpus_loader import LAZY_CHUNK_ROWS, Corpus, _cupy_device_id, _lazy_sparse_meta, ex_path
 from .expression import DatasetEntry, FederatedLanceReader, LanceDatasetEntry, SortedTakeReader
 from .feature_registry import FeatureRegistry
 from .index import MetadataIndex
@@ -237,7 +237,7 @@ def _read_aligned(reader, indices, local_to_output, width, dtype=None, device="c
 
 def view_to_anndata(
     corpus: Corpus, *, dataset_id=None, global_row_indices=None,
-    obs_columns=None, var_join="exact", lazy=False, chunk_rows=65_536, device="cpu",
+    obs_columns=None, var_join="exact", lazy=False, chunk_rows=LAZY_CHUNK_ROWS, device="cpu",
 ):
     """AnnData handoff sharing the same sparse reader and feature coordinates.
 
